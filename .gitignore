@@ -1,0 +1,14 @@
+# Python 运行时产物
+__pycache__/
+*.py[cod]
+
+# PyInstaller 打包产物（exe 与中间文件，体积大且可重新生成）
+build/
+dist/
+
+# 运行时数据（任务记录、日志、junit 报告，代码启动时自动重建）
+data/
+
+# IDE / 编辑器配置
+.idea/
+.vscode/
