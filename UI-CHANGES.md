@@ -1,6 +1,6 @@
 # 工作台 UI 迭代报告（第四轮 · 2026-11-12）
 
-> 写给下一轮迭代：本轮改动全景、涉及文件、验证结论、遗留风险。每轮报告置顶、上轮收编历史章节；回滚用 `git revert`（仓库在 `workbench/`）。改动前先读 `ARCHITECTURE.md`（文件地图 + Gradio DOM 坑清单）。
+> 写给下一轮迭代的三条规则：①本文件**仅保留最近两轮**迭代详报，更早轮次删除——其中「仍有效」的遗留风险并入文末「历史遗留汇总」，其余不保留；通用坑与经验一律沉淀进 ARCHITECTURE.md 坑清单，不依赖本文件历史。②改动前先读 `ARCHITECTURE.md`（文件地图 + Gradio DOM 坑清单）。③迭代收尾顺序：更新本文件 → `git commit + push origin main` → **重新打包 exe**（pyinstaller，命令见 CLAUDE.md 工作台节）。回滚用 `git revert`（仓库在 `workbench/`）。
 
 ## 本轮改了什么
 
@@ -13,7 +13,10 @@
 
 ### 3. Excel 预览列宽放宽 + 横向滚动（views_gen.py + CSS）
 - `column_widths` 百分比方案弃用——**实测 Gradio 5.50 的 column_widths 总宽超容器时会被等比缩放回容器宽**（864px→510px），永远不出横向滚动条（已录入 ARCHITECTURE.md 坑 11）。
-- 改 CSS：`.excel-preview table { min-width: 860px }` + 容器 `overflow-x: auto`——表格恒 860px 宽，容器 ~510px，横向滚动时视口内 4~5 列同时可见（用户要求 4~7 列），每列比均分方案宽 30~50%。
+- 改 CSS：`.excel-preview table { min-width: 860px }` + 容器 `overflow-x: auto`——表格恒 860px 宽，容器 ~510px，横向滚动时视口内 4~5 列同时可见，每列比均分方案宽 30~50%。
+
+### 4. exe 重新打包
+本轮起打包固化进收尾流程（此前仅 commit+push，exe 一直停留在初始提交前的旧代码）。dist 下 exe 现包含全部四轮改动。
 
 ## 涉及文件
 | 文件 | 改动 |
@@ -21,7 +24,7 @@
 | workbench/ui/views_gen.py | 用例生成预览 preview-tall 类；脚本生成 parse_status 初始提示、cases-placeholder 类、Excel 预览 excel-preview 类（去 column_widths） |
 | workbench/ui/__init__.py | CSS：preview-tall 620 / cases-placeholder 占位 260 / excel-preview 高 560 + 表格 min-width 860 横滚 |
 | workbench/ARCHITECTURE.md | 坑 11 扩充（无 height 参数、column_widths 缩放行为）、新增坑 12（max-height vs height 占位语义） |
-| workbench/UI-CHANGES.md | 本报告 |
+| workbench/UI-CHANGES.md | 本报告（并按新规则压缩历史） |
 
 launcher.py / chat.py / views_ops.py / common.py / skill_advice.py 及后端未动。
 
@@ -38,67 +41,21 @@ launcher.py / chat.py / views_ops.py / common.py / skill_advice.py 及后端未�
 
 ---
 
-## 历史：2026-11-12 第三轮（提交 da6ff25）
-
-### 改了什么
-1. **窗口默认大小 1400×800**：上轮 1400×900 与更早 1432×913 仅差 32×13px（约 2%），用户实测「看不出变化」属预期非 bug；本轮按确认改 1400×800。聊天弹性布局自适应无需动。
-2. **测试点分析预览挪位**：从「完善 SKILL」Accordion 双列右列挪到右列任务区下方（与用例生成同模式），Accordion 恢复单列竖排。
-3. **两页预览限高**（`preview-scroll` 类，400px 框内滚动）：此前 `lines=18` 内容长会撑高组件拉长页面。
-4. **脚本生成微调**：刷新按钮去 `size="sm"` 与解析用例同尺寸（40px）；第三行数量上限 `scale 1→2`（label 不换行）、显示全部 `scale 2→1`（换行）；Excel 预览裁剪前 7 列（`preview_xlsx` 加 `max_cols`）；`column_widths` 百分比防表头竖排（本轮弃用，见上）；预览 `max_height 320→220` 与左列未解析态对齐（本轮改 560 固定高，见上）。
-5. **流程固化**（CLAUDE.md）：迭代开始先读 UI-CHANGES.md 顶部最新报告、结束后更新该文档并 commit + push——无需用户重复要求。（ARCHITECTURE.md 坑清单加第 11 条 DataFrame）
-
-### 验证（当时 1400×800，11 项断言全过）
-800 高聊天无滚动、预览初始内容+切换更新、限高生效、预览与任务区同列、按钮同高、Excel 预览有内容、cases-list 单列、上下文页无报错；预览下边界 458 vs 按钮 455（差 3px，当时未解析态）。
-
-### 遗留（本轮处置随文标注）
-1. Excel 预览高度对齐依赖内容超限——本轮改固定 height 560，消除。
-2. 1400×800 在 1366×768 屏超屏钳制——仍有效。
-3. exe 未重新打包——仍有效。
+## 上一轮概要（第三轮 · 提交 da6ff25 · 2026-11-12）
+- 窗口默认 **1400×800**（更早 1432×913→1400×900 仅差 2%，用户实测无变化属预期，非 bug）。
+- 测试点分析预览挪到右列任务区下方（与用例生成同模式），「完善 SKILL」Accordion 恢复单列。
+- 两页文档预览限高 `preview-scroll`（400px 框内滚动，不撑长页面）。
+- 脚本生成：解析/刷新按钮同尺寸；数量上限加宽（label 不换行）、显示全部变窄（换行）；Excel 预览裁剪前 7 列（`preview_xlsx` 加 `max_cols`）。
+- 流程固化进 CLAUDE.md（迭代开始读上轮报告 / 结束更新文档并 push）。
+验证 11 项全过；其「Excel 预览高度依赖内容超限」遗留已在本轮以固定 height 消除。
 
 ---
 
-## 历史：2026-11-12 第二轮（提交 ea02134）
-
-> 「进聊天预填」与三视图预览在本轮引入；Gradio Dropdown 自动预选第一项的坑在本轮发现并已录入 ARCHITECTURE.md 第 3 条。
-
-### 改了什么
-1. **窗口默认大小 1400×900**（后改 1400×800）。
-2. **聊天视图弹性填满窗口**：弃用 `.chat-resize` 拖动机制；flex 作用于 Group 内层 `.styler`；`--chat-reserved: 160px` 实测校准；消息框 lines 2→5、max_lines=12。聊天视图是唯一锁高视图。
-3. **三个生成视图补文件预览**：测试点分析/用例生成（gr.Code markdown）、脚本生成（gr.DataFrame）。**坑：Dropdown 加载时自动预选第一项**，change 只在 value 真变化时触发——预览初始 value 须对齐预选第一项。
-4. **「进聊天讨论方案」改预填消息栏**：discuss_prefill 同步预填（保留附件），不自动发送；无建议预填基础引导（修复「只跳转」）；`build_chat_panel` 返回 dict 加 `"msg"`；运行中任务守卫删除。
-5. **脚本生成三行重排**（本轮又微调宽度）。
-6. **脚本运行 cases-list 类**（与 cases-grid 拆分）：一行一个、长名换行、限高 400、无横向滚动。
-7. **提示文案清理**：去括号说明，保留 chromium 缺失 info。
-8. **上下文页报错修复**：动态 import src.corebrowser 在 exe frozen 下必炸 → ast 静态解析三常量（ARCHITECTURE.md 坑 10）。
-9. **CLAUDE.md 改 gr.Code**（复制按钮、可全选）。
-
-### 验证（当时 1400×900，25 项断言全过）
-聊天无滚动、联想可见、弹层可见、预览初始+切换、预填两分支、cases-list、上下文页、文案清理。
-
-### 遗留（处置随文标注）
-1. 预填后手动发送 submit 链路未自动实测——仍有效。
-2. `--chat-reserved` 字体渲染 ±几px——仍有效。
-3. Dropdown 预选后刷新列表短暂不一致——仍有效。
-4. exe 未重新打包——仍有效。
-
----
-
-## 历史：2026-11-12 第一轮（无 git 时代，改动在初始提交 3a691f1 内）
-
-> 坑记录均已录入 ARCHITECTURE.md（Dropdown 无 type 属性、overflow 裁剪弹层等）。
-
-### 改了什么
-1. **恢复页面整体滚动**：根因 `.view-scroll` overflow 裁剪 Dropdown 弹层（「下拉没反应」）；删限高，局部滚动保留（shot-scroll/cases-grid/advice-table/task-result）。
-2. **聊天页精简**：删新会话/滑块；@ 联想扩为项目根全扫描（30s TTL）+ `/` SKILL 联想。
-3. **测试点分析**：修复 shots_radio change 未绑预览的真 bug；完善 SKILL 改 Accordion。
-4. **脚本生成**：两排排版 + 已生成提交时强制过滤。
-5. **脚本运行**：marker p0–p2；文件选择改 CheckboxGroup。
-6. **结果报告**：区块顺序 历史运行→运行结果文件→失败截图。
-7. **上下文页**：CLAUDE.md 默认折叠。
-8. **服务常驻**：窗口关闭服务不退出（WORKBENCH_KEEP_ALIVE=0 可关）、「退出服务」按钮、app.py 自建 uvicorn.Server。
-
-### 遗留（处置情况）
-1/2. chat-resize 双滚动条/不持久化 → 第二轮弃用消除。
-3. 候选 TTL 30s——仍有效。4. 已生成禁勾是提交时过滤——仍有效。
-5. Gradio DOM 坑——已录入 ARCHITECTURE.md。
-6. exe 未重新打包——仍有效。7. p3 marker 残留 warning（非工作台，未处理）。
+## 历史遗留汇总（第一、二轮中仍有效的项；其余内容已删，坑均在 ARCHITECTURE.md）
+- 预填后「手动发送」的 submit 链路未自动实测（会真调 claude CLI）——窗口模式首次使用留意。
+- `--chat-reserved: 160px`（聊天弹性布局预留高）按当前字体渲染校准，出现 ±几px 页面滚动时优先调它。
+- Dropdown 自动预选后刷新列表，选中项与预览可能短暂不一致（影响小）。
+- @ 联想候选 TTL 30 秒（common.py `_SUGGEST_TTL_SEC`）。
+- 脚本生成「已生成禁勾」是提交时过滤而非 UI 置灰。
+- tests/ 残留 `@pytest.mark.p3` 会打 unknown-marker warning（非工作台问题，未处理）。
+- exe 打包后建议实测：窗口模式开窗 + 上下文页（ast 解析是为 frozen 场景修的）。
