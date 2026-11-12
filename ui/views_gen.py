@@ -161,13 +161,14 @@ def build_cases_view(timer: gr.Timer) -> dict:
                 btn_start = gr.Button("生成用例 Excel", variant="primary")
             with gr.Column(scale=1):
                 area = build_task_area()
-                # 预览限高框内滚动；初始值对齐 Dropdown 的自动预选（第一项）
+                # 预览加高（preview-tall 覆盖到 480）：右列总高≈可视界面高，与脚本生成页一致；
+                # 限高框内滚动；初始值对齐 Dropdown 的自动预选（第一项）
                 _point_files = list_choices(config.DIR_TEST_POINTS, (".md",))
                 point_preview = gr.Code(
                     value=read_text(_point_files[0][1]) if _point_files else "",
                     label="文档内容预览", language="markdown",
                     interactive=False, wrap_lines=True,
-                    elem_classes=["preview-scroll"],
+                    elem_classes=["preview-scroll", "preview-tall"],
                 )
         bind_task_area(timer, area)
 
@@ -218,7 +219,7 @@ def build_scripts_view(timer: gr.Timer) -> dict:
                 with gr.Row():                      # 第二行：解析 + 刷新（同尺寸）
                     btn_parse = gr.Button("解析用例", variant="secondary")
                     btn_refresh = gr.Button("刷新")
-                parse_status = gr.Markdown("")
+                parse_status = gr.Markdown("请先选择用例 Excel，点击「解析用例」后在此勾选")
                 with gr.Row():                      # 第三行：数量上限（宽，label 不换行）+ 显示全部（窄，label 换行）
                     limit_num = gr.Number(
                         label="数量上限（留空或 0 = 不限）", value=None, precision=0,
@@ -231,18 +232,18 @@ def build_scripts_view(timer: gr.Timer) -> dict:
                     label="勾选要生成的用例（编号 ｜ 自动化状态 ｜ 名称）",
                     choices=[], interactive=True,
                     show_select_all=True,           # 原生全选/清空
-                    elem_classes=["cases-grid"],    # 两列 + 限高滚动（CSS）
+                    elem_classes=["cases-grid", "cases-placeholder"],  # 两列限高滚动；未解析时保留占位高度（CSS）
                 )
                 btn_gen = gr.Button("生成自动化脚本", variant="primary")
             with gr.Column(scale=1):
                 area = build_task_area()
-                # 预览裁剪前 7 列 + 按列分配宽度（防窄列竖排）；高度与左列下边界对齐（实测校准）
+                # 预览裁剪前 7 列；固定像素列宽（总宽超容器→横向滚动，视口约 4~5 列）；
+                # 高度与左列「解析后」对齐（实测校准），未解析时由左列占位高度保持齐平
                 _xlsx_files = list_choices(config.DIR_TEST_CASES, (".xlsx",))
                 xlsx_preview = gr.DataFrame(
                     value=preview_xlsx(_xlsx_files[0][1], max_cols=7) if _xlsx_files else [["（暂无用例 Excel）"]],
                     label="Excel 内容预览（前 30 行 × 前 7 列）", interactive=False,
-                    wrap=True, max_height=220,
-                    column_widths=["11%", "12%", "13%", "14%", "15%", "17%", "18%"],
+                    wrap=True, elem_classes=["excel-preview"],   # 固定高度+强制表格宽→横向滚动（Gradio 无 height/column_widths 溢出能力，CSS 控制）
                 )
         bind_task_area(timer, area)
 
