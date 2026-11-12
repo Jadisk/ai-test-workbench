@@ -16,6 +16,8 @@ from .common import (
     generated_case_ids,
     list_choices,
     parse_excel_cases,
+    preview_xlsx,
+    read_text,
 )
 
 
@@ -33,7 +35,7 @@ def build_analysis_view(timer: gr.Timer) -> dict:
             with gr.Column(scale=1):
                 btn_refresh = gr.Button("刷新截图列表", size="sm")
                 shots_radio = gr.Radio(
-                    label="选择截图（新文件在前）",
+                    label="选择截图",
                     choices=list_choices(config.DIR_SHOT_TEST_POINTS, (".png", ".jpg")),
                     interactive=True,
                     elem_classes=["shot-scroll"],
@@ -72,26 +74,42 @@ def build_analysis_view(timer: gr.Timer) -> dict:
         )
 
         # ---------------- 完善 SKILL（基于测试点文档中的完善建议） ----------------
+        _advice_files = list_choices(config.DIR_TEST_POINTS, (".md",))
         with gr.Accordion("完善 SKILL（提取文档完善建议 → 进聊天讨论方案）", open=True):
             gr.Markdown(
                 "提取文档「Skill 完善建议」章节的未知组件/未知场景，"
                 "进聊天讨论完善方案（先出方案，确认后改 `.claude/skills/*.md`）。"
             )
-            advice_dd = gr.Dropdown(
-                label="测试点文档（默认最新在前）",
-                choices=list_choices(config.DIR_TEST_POINTS, (".md",)),
-                interactive=True,
-            )
             with gr.Row():
-                btn_advice_refresh = gr.Button("刷新文档列表", size="sm")
-                btn_extract = gr.Button("提取完善建议", size="sm", variant="secondary")
-                btn_discuss = gr.Button("进聊天讨论方案", size="sm", variant="primary")
-            advice_md = gr.Markdown("", elem_classes=["advice-table"])
-            advice_state = gr.State([])
+                with gr.Column(scale=1):
+                    advice_dd = gr.Dropdown(
+                        label="测试点文档",
+                        choices=_advice_files,
+                        interactive=True,
+                    )
+                    with gr.Row():
+                        btn_advice_refresh = gr.Button("刷新文档列表", size="sm")
+                        btn_extract = gr.Button("提取完善建议", size="sm", variant="secondary")
+                        btn_discuss = gr.Button("进聊天讨论方案", size="sm", variant="primary")
+                    advice_md = gr.Markdown("", elem_classes=["advice-table"])
+                    advice_state = gr.State([])
+                with gr.Column(scale=1):
+                    # Gradio Dropdown 加载时自动预选第一项，预览初始值须与其对齐（否则打开页即空白）
+                    advice_preview = gr.Code(
+                        value=read_text(_advice_files[0][1]) if _advice_files else "",
+                        label="文档内容预览", language="markdown",
+                        interactive=False, lines=18, wrap_lines=True,
+                    )
 
         btn_advice_refresh.click(
             lambda: gr.update(choices=list_choices(config.DIR_TEST_POINTS, (".md",))),
             outputs=[advice_dd],
+        )
+
+        # 选中测试点文档 → 右列预览原文
+        advice_dd.change(
+            lambda p: read_text(p) if p else "", inputs=[advice_dd],
+            outputs=[advice_preview], show_progress="hidden",
         )
 
         def on_extract(md_path):
@@ -105,23 +123,19 @@ def build_analysis_view(timer: gr.Timer) -> dict:
             show_progress="hidden",
         )
 
-        def discuss_fn(md_path, suggestions, history, session_id):
-            """进聊天讨论方案：切视图由 __init__ 的按钮链处理，本函数负责流式对话。"""
-            if not suggestions:
-                yield history, gr.update(), session_id, "请先提取完善建议（当前文档无可讨论条目）"
-                return
-            running = get_job_manager().running("claude")
-            if running:
-                yield history, gr.update(), session_id, \
-                    f"已有 claude 任务在运行（{running[0].title}），请等待完成或停止后再讨论"
-                return
-            from .chat import stream_chat  # 延迟导入避免循环依赖
-            prompt = skill_advice.build_discussion_prompt(md_path, suggestions)
-            yield from stream_chat(prompt, "（完善 SKILL 方案讨论）", history, session_id)
+        def discuss_prefill(md_path, suggestions, msg_value):
+            """进聊天讨论方案：切视图由 __init__ 的按钮链处理，本函数把讨论 prompt 预填进消息栏（不自动发送）。"""
+            prompt = skill_advice.build_discussion_prompt(md_path, suggestions or [])
+            files = (msg_value or {}).get("files") or []   # 保留用户已贴的附件
+            if suggestions:
+                hint = "已填入讨论内容（消息栏），请核对补充后手动发送"
+            else:
+                hint = "该文档未提取到完善建议，已填入基础引导（可直接发送）"
+            return gr.update(value={"text": prompt, "files": files}), hint
 
         return {
             "view": view, "task": area,
-            "advice": {"btn": btn_discuss, "inputs": [advice_dd, advice_state], "fn": discuss_fn},
+            "advice": {"btn": btn_discuss, "inputs": [advice_dd, advice_state], "fn": discuss_prefill},
         }
 
 
@@ -149,11 +163,24 @@ def build_cases_view(timer: gr.Timer) -> dict:
                 btn_start = gr.Button("生成用例 Excel", variant="primary")
             with gr.Column(scale=1):
                 area = build_task_area()
+                # 同测试点分析：预览初始值对齐 Dropdown 的自动预选（第一项）
+                _point_files = list_choices(config.DIR_TEST_POINTS, (".md",))
+                point_preview = gr.Code(
+                    value=read_text(_point_files[0][1]) if _point_files else "",
+                    label="文档内容预览", language="markdown",
+                    interactive=False, lines=18, wrap_lines=True,
+                )
         bind_task_area(timer, area)
 
         btn_refresh.click(
             lambda: gr.update(choices=list_choices(config.DIR_TEST_POINTS, (".md",))),
             outputs=[point_md],
+        )
+
+        # 选中测试点文档 → 右列预览原文（任务区下方，状态行不被推下去）
+        point_md.change(
+            lambda p: read_text(p) if p else "", inputs=[point_md],
+            outputs=[point_preview], show_progress="hidden",
         )
 
         def start_fn(point, note_text):
@@ -180,20 +207,20 @@ def build_cases_view(timer: gr.Timer) -> dict:
 def build_scripts_view(timer: gr.Timer) -> dict:
     with gr.Group(visible=False) as view:
         gr.Markdown(
-            "### 脚本生成　选择用例 Excel 解析后勾选用例（默认仅计划自动化且未生成），"
-            "按编号前缀路由 script-func / script-ui 生成 pytest 脚本。"
+            "### 脚本生成　选择用例 Excel，按编号前缀路由 script-func / script-ui 生成 pytest 脚本。"
         )
         with gr.Row():
             with gr.Column(scale=1):
-                with gr.Row():                      # 第一排：文件选择 + 解析
-                    xlsx_dd = gr.Dropdown(
-                        label="测试用例 Excel",
-                        choices=list_choices(config.DIR_TEST_CASES, (".xlsx",)),
-                        interactive=True, scale=4,
-                    )
-                    btn_parse = gr.Button("解析用例", variant="secondary", scale=1)
+                xlsx_dd = gr.Dropdown(                      # 第一行：文件选择独占
+                    label="测试用例 Excel",
+                    choices=list_choices(config.DIR_TEST_CASES, (".xlsx",)),
+                    interactive=True,
+                )
+                with gr.Row():                      # 第二行：解析 + 刷新
+                    btn_parse = gr.Button("解析用例", variant="secondary")
+                    btn_refresh = gr.Button("刷新", size="sm")
                 parse_status = gr.Markdown("")
-                with gr.Row():                      # 第二排：数量上限 + 展示全部 + 刷新
+                with gr.Row():                      # 第三行：数量上限 + 显示全部
                     limit_num = gr.Number(
                         label="数量上限（留空或 0 = 不限）", value=None, precision=0,
                         minimum=0, maximum=200, scale=1,
@@ -201,7 +228,6 @@ def build_scripts_view(timer: gr.Timer) -> dict:
                     show_all_cb = gr.Checkbox(
                         label="显示全部用例（含未标记自动化 / 已生成）", value=False, scale=2,
                     )
-                    btn_refresh = gr.Button("刷新", size="sm", scale=1)
                 cases_check = gr.CheckboxGroup(
                     label="勾选要生成的用例（编号 ｜ 自动化状态 ｜ 名称）",
                     choices=[], interactive=True,
@@ -211,7 +237,20 @@ def build_scripts_view(timer: gr.Timer) -> dict:
                 btn_gen = gr.Button("生成自动化脚本", variant="primary")
             with gr.Column(scale=1):
                 area = build_task_area()
+                # 同测试点分析：预览初始值对齐 Dropdown 的自动预选（第一项）
+                _xlsx_files = list_choices(config.DIR_TEST_CASES, (".xlsx",))
+                xlsx_preview = gr.DataFrame(
+                    value=preview_xlsx(_xlsx_files[0][1]) if _xlsx_files else [["（暂无用例 Excel）"]],
+                    label="Excel 内容预览（前 30 行）", interactive=False,
+                    wrap=True, max_height=280,
+                )
         bind_task_area(timer, area)
+
+        # 选中用例 Excel → 右列预览前 30 行（preview_xlsx 自带空路径兜底）
+        xlsx_dd.change(
+            preview_xlsx, inputs=[xlsx_dd], outputs=[xlsx_preview],
+            show_progress="hidden",
+        )
 
         btn_refresh.click(
             lambda: gr.update(choices=list_choices(config.DIR_TEST_CASES, (".xlsx",))),

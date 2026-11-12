@@ -2,6 +2,7 @@
 """运维类功能视图：脚本运行 / 结果报告 / 项目上下文。"""
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import gradio as gr
@@ -21,17 +22,18 @@ def build_runner_view(timer: gr.Timer) -> gr.Group:
             "### 脚本运行\n\n"
             "通过 subprocess 调用项目虚拟环境 pytest（默认 msedge 无头）。"
             "失败用例自动截图至 `screenshots/failures/`，运行结果落盘 `results/`。"
+            "测试文件默认全不选，勾选后仅运行所选。"
         )
         with gr.Row():
             with gr.Column(scale=1):
                 run_all = gr.Checkbox(label="全量运行 tests/", value=False)
                 test_files = gr.CheckboxGroup(
-                    label="选择测试文件（仅 test_*.py，默认全不选）",
+                    label="选择测试文件",
                     choices=list_test_choices(),
                     value=[],
                     interactive=True,
                     show_select_all=True,
-                    elem_classes=["cases-grid"],    # 两列 + 限高滚动（与脚本生成一致）
+                    elem_classes=["cases-list"],    # 一行一个 + 长名换行 + 限高滚动（与脚本生成的 cases-grid 区分）
                 )
                 marker_dd = gr.Dropdown(
                     label="优先级过滤（-m）", choices=["", "p0", "p1", "p2"],
@@ -186,23 +188,66 @@ def build_context_view(timer: gr.Timer) -> gr.Group:
         gr.Markdown("#### 浏览器配置（src/corebrowser.py，实际生效值）")
         gr.Markdown(_browser_config_md())
         with gr.Accordion("CLAUDE.md（项目规范，含目录结构与约定）", open=False):
-            gr.Markdown(read_text(config.FILE_CLAUDE_MD))
+            gr.Code(
+                value=read_text(config.FILE_CLAUDE_MD),
+                label="CLAUDE.md 原文（可全选复制）",
+                language="markdown", interactive=False, lines=22, wrap_lines=True,
+            )
         return view
 
 
-def _browser_config_md() -> str:
-    """从 src/corebrowser.py 读取浏览器配置常量（项目配置唯一来源）。"""
+_BROWSER_CONFIG_KEYS = {
+    "DEFAULT_BROWSER_CHANNEL": "channel",
+    "BROWSER_ARGS": "args",
+    "CONTEXT_CONFIG": "context",
+}
+
+
+def _extract_browser_config() -> dict | None:
+    """ast 静态解析 src/corebrowser.py 顶层字面量赋值（不执行 import）。
+
+    exe frozen 模式下 src 不是可导入包且 playwright 未打包，动态 import 必失败
+    （此前「实际生效值」下方的一行报错即来源于此）；三个目标常量均为纯字面量
+    （str / list[str] / 含嵌套 dict），literal_eval 安全。
+    """
+    path = config.PROJECT_ROOT / "src" / "corebrowser.py"
     try:
-        from src.corebrowser import BROWSER_ARGS, CONTEXT_CONFIG, DEFAULT_BROWSER_CHANNEL
-    except Exception as exc:
-        return f"读取 src/corebrowser.py 失败：{exc}"
-    args = "\n".join(f"  - `{a}`" for a in BROWSER_ARGS)
-    viewport = CONTEXT_CONFIG.get("viewport", {})
+        tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
+    except (OSError, SyntaxError, ValueError):
+        return None
+    out: dict = {"channel": None, "args": [], "context": {}}
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target, value_node = node.targets[0], node.value
+        elif isinstance(node, ast.AnnAssign):
+            target, value_node = node.target, node.value
+        else:
+            continue
+        if not isinstance(target, ast.Name) or value_node is None:
+            continue
+        key = _BROWSER_CONFIG_KEYS.get(target.id)
+        if key is None:
+            continue
+        try:
+            out[key] = ast.literal_eval(value_node)
+        except (ValueError, TypeError, MemoryError):
+            continue  # 非字面量（拼接/调用）→ 保留默认值，不中断渲染
+    return out
+
+
+def _browser_config_md() -> str:
+    """浏览器配置实际生效值：ast 静态解析 src/corebrowser.py（frozen 安全）。"""
+    cfg = _extract_browser_config()
+    if cfg is None:
+        return "（读取 src/corebrowser.py 失败：文件不存在或语法错误）"
+    args = "\n".join(f"  - `{a}`" for a in cfg["args"])
+    context = cfg["context"] or {}
+    viewport = context.get("viewport", {})
     return (
-        f"**浏览器渠道**：`{DEFAULT_BROWSER_CHANNEL}`（系统自带 Edge）\n\n"
+        f"**浏览器渠道**：`{cfg['channel']}`（系统自带 Edge）\n\n"
         f"**viewport**：`{viewport.get('width')}×{viewport.get('height')}` ｜ "
-        f"**locale**：`{CONTEXT_CONFIG.get('locale')}` ｜ "
-        f"**时区**：`{CONTEXT_CONFIG.get('timezone_id')}`\n\n"
+        f"**locale**：`{context.get('locale')}` ｜ "
+        f"**时区**：`{context.get('timezone_id')}`\n\n"
         f"**启动参数（BROWSER_ARGS）**：\n{args}\n\n"
         f"**反检测**：`ANTI_DETECTION_SCRIPT`（conftest autouse 注入）"
     )

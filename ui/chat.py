@@ -3,7 +3,6 @@
 
 - 默认即聊天：调起 claude CLI 多轮流式对话（可附截图、@ 引用文件、/ 与 @ 实时联想）
 - / 命令快捷发起 SKILL 任务：聊天流精简展示（不刷工具调用，进度走状态行，完成输出概览）
-- stream_chat 为公共生成器，供外部视图（完善 SKILL 讨论）自动发起多轮会话
 """
 from __future__ import annotations
 
@@ -36,7 +35,7 @@ def _session_info_md(session_id: str | None) -> str:
 def stream_chat(prompt: str, display_text: str, history: list, session_id: str | None):
     """公共流式聊天生成器：yield (history, active_job_update, session_id, status_md)。
 
-    普通消息与视图联动（完善 SKILL 讨论）共用；工具调用以状态行呈现，不刷进聊天流。
+    普通消息发送共用；工具调用以状态行呈现，不刷进聊天流。
     """
     chat_log.log_turn("user", prompt, session_id)
     history = list(history) + [{"role": "user", "content": display_text}]
@@ -78,22 +77,22 @@ def stream_chat(prompt: str, display_text: str, history: list, session_id: str |
 
 def build_chat_panel(timer: gr.Timer, active_job: gr.State) -> tuple[gr.Group, dict]:
     """构建聊天主面板，返回 (面板 Group, 组件引用) 供侧边栏切换与外部联动。"""
-    with gr.Group() as panel:
+    with gr.Group(elem_classes=["chat-view"]) as panel:
         session_state = gr.State(None)
         cursor_state = gr.State(0)  # 任务事件渲染游标（持久）
         chatbot = gr.Chatbot(
             type="messages",
-            height=CHAT_HEIGHT_DEFAULT,
+            height=CHAT_HEIGHT_DEFAULT,     # 仅作 flex-basis，弹性布局下自动占满剩余空间
             label="对话",
             show_copy_button=True,
-            elem_classes=["chat-resize"],   # CSS resize: vertical 拖动调高
+            elem_classes=["chat-fill"],     # CSS 弹性填满（见 __init__.py 聊天视图规则）
         )
         status = gr.Markdown("", container=True)  # 任务进度/会话状态（初始为空）
         msg = gr.MultimodalTextbox(
             file_types=["image"],
             placeholder="输入消息，可附截图；@文件路径 引用文件（如 @test-points/xxx.md）；/命令 调用 SKILL",
             label="消息",
-            lines=2,
+            lines=5, max_lines=12,          # 预填讨论 prompt 时可撑开，flex 布局下对话区自动让位
         )
         # 实时联想候选区（/ SKILL 命令、@ 文件引用；点击回填输入框）
         # suggest_component 在 Blocks 上下文中创建（初始化完整），事件回调中复用（勿新建）
@@ -243,4 +242,4 @@ def build_chat_panel(timer: gr.Timer, active_job: gr.State) -> tuple[gr.Group, d
             show_progress="hidden",
         )
 
-    return panel, {"chatbot": chatbot, "status": status, "session_state": session_state}
+    return panel, {"chatbot": chatbot, "status": status, "session_state": session_state, "msg": msg}

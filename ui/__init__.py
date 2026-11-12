@@ -3,7 +3,7 @@
 
 生成类视图（测试点分析/用例生成/脚本生成）的任务在本页签内嵌任务区展示，
 启动按钮由各视图自行绑定，不再切回聊天；唯一跨视图联动是「完善 SKILL」
-（切到聊天视图后自动发起方案讨论，以 .success 链解耦）。
+（切到聊天视图并把讨论 prompt 预填进消息栏，以 .success 链解耦）。
 """
 from __future__ import annotations
 
@@ -19,13 +19,21 @@ _CSS = """
 .sidebar .btn { justify-content: flex-start; }
 .sidebar .quit-btn { margin-top: 24px; }
 /* 页面整体滚动：视图容器不再限高（overflow 会裁剪 Dropdown 弹层，导致"下拉没反应"），
-   只有明确的长列表区域保留局部滚动 */
+   只有明确的长列表区域保留局部滚动；聊天视图例外——弹性填满窗口（页内无 Dropdown 弹层） */
 .shot-scroll .wrap { max-height: 240px; overflow-y: auto; }
 .cases-grid .wrap { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 260px; overflow-y: auto; align-content: start; gap: 6px 14px; }
 .advice-table { max-height: 180px; overflow-y: auto; }
 .task-result { max-height: 340px; overflow-y: auto; }
-/* 聊天区：CSS 原生拖动手柄调高度（默认高度由组件 height 参数控制，此处只启用拖动） */
-.chat-resize { resize: vertical; overflow: auto; min-height: 200px; }
+/* 聊天视图弹性填满：Gradio Group 真实 DOM 为 .gr-group > .styler > 组件，flex 须作用于 .styler；
+   chatbot 的内联 height:340 恰作 flex-basis，flex-grow 占满剩余空间、flex-shrink 允许收缩 */
+:root { --chat-reserved: 160px; }  /* 头部+页脚+容器 padding 预留高度，playwright 实测校准 */
+.chat-view { height: calc(100vh - var(--chat-reserved)); }
+.chat-view .styler { display: flex; flex-direction: column; height: 100%; }
+.chat-view .chat-fill { flex: 1 1 auto; min-height: 160px; }
+/* 脚本运行页测试文件列表：一行一个、长名换行、不出横向滚动（minmax(0,1fr)+min-width:0 防长名撑开） */
+.cases-list .wrap { display: grid; grid-template-columns: minmax(0, 1fr); max-height: 400px; overflow-y: auto; overflow-x: hidden; align-content: start; gap: 6px 0; }
+.cases-list .wrap label, .cases-list .wrap label .wrap-inner, .cases-list .wrap label .label-text { min-width: 0; }
+.cases-list .wrap label .label-text { white-space: normal; overflow-wrap: anywhere; }
 /* 联想候选：CLI 风格（等宽、左对齐、hover 高亮成整行蓝底） */
 .suggest-panel button { font-family: Consolas, "Courier New", monospace; text-align: left; justify-content: flex-start; }
 .suggest-panel button:hover { background: #e3e7fd; }
@@ -103,15 +111,15 @@ def build_ui() -> gr.Blocks:
                          outputs=[*view_groups, *sidebar_buttons],
                          show_progress="hidden")
 
-        # ---------------- 完善 SKILL：切到聊天后自动发起方案讨论 ----------------
+        # ---------------- 完善 SKILL：切到聊天后把讨论 prompt 预填进消息栏 ----------------
         adv = analysis["advice"]
         adv["btn"].click(
             _make_switch(0), inputs=[],
             outputs=[*view_groups, *sidebar_buttons], show_progress="hidden",
         ).success(
             adv["fn"],
-            inputs=[*adv["inputs"], chat_refs["chatbot"], chat_refs["session_state"]],
-            outputs=[chat_refs["chatbot"], active_job, chat_refs["session_state"], chat_refs["status"]],
+            inputs=[*adv["inputs"], chat_refs["msg"]],
+            outputs=[chat_refs["msg"], chat_refs["status"]],
             show_progress="hidden",
         )
 

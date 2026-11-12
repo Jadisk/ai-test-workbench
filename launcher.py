@@ -186,8 +186,8 @@ def _open_window(server, server_thread, url: str) -> None:
     webview.create_window(
         "B站 AI 测试工程化工作台",
         url,
-        width=1432,
-        height=913,
+        width=1400,
+        height=900,
         min_size=(1024, 680),
     )
     try:
