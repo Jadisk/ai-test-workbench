@@ -34,6 +34,8 @@ _CSS = """
 .cases-list .wrap { display: grid; grid-template-columns: minmax(0, 1fr); max-height: 400px; overflow-y: auto; overflow-x: hidden; align-content: start; gap: 6px 0; }
 .cases-list .wrap label, .cases-list .wrap label .wrap-inner, .cases-list .wrap label .label-text { min-width: 0; }
 .cases-list .wrap label .label-text { white-space: normal; overflow-wrap: anywhere; }
+/* 文档内容预览限高：内容长时框内滚动、不撑长页面（预览组件内无弹层，overflow 安全） */
+.preview-scroll { max-height: 400px; overflow-y: auto; }
 /* 联想候选：CLI 风格（等宽、左对齐、hover 高亮成整行蓝底） */
 .suggest-panel button { font-family: Consolas, "Courier New", monospace; text-align: left; justify-content: flex-start; }
 .suggest-panel button:hover { background: #e3e7fd; }

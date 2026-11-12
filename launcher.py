@@ -187,7 +187,7 @@ def _open_window(server, server_thread, url: str) -> None:
         "B站 AI 测试工程化工作台",
         url,
         width=1400,
-        height=900,
+        height=800,
         min_size=(1024, 680),
     )
     try:

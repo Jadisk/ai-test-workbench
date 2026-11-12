@@ -25,7 +25,8 @@ from .common import (
 # 测试点分析视图
 # ---------------------------------------------------------------------------
 def build_analysis_view(timer: gr.Timer) -> dict:
-    """构建测试点分析视图：单选截图 + 内嵌任务区 + 完善 SKILL 区。"""
+    """构建测试点分析视图：单选截图 + 内嵌任务区（含文档预览） + 完善 SKILL 区。"""
+    _advice_files = list_choices(config.DIR_TEST_POINTS, (".md",))
     with gr.Group(visible=False) as view:
         gr.Markdown(
             "### 测试点分析　选择 `screenshots/test-points/` 中的截图（单选），"
@@ -45,6 +46,13 @@ def build_analysis_view(timer: gr.Timer) -> dict:
                 btn_start = gr.Button("开始分析", variant="primary")
             with gr.Column(scale=1):
                 area = build_task_area()
+                # 与用例生成同模式：任务区下方 + 限高框内滚动；初始值对齐 Dropdown 自动预选
+                advice_preview = gr.Code(
+                    value=read_text(_advice_files[0][1]) if _advice_files else "",
+                    label="文档内容预览", language="markdown",
+                    interactive=False, wrap_lines=True,
+                    elem_classes=["preview-scroll"],
+                )
         bind_task_area(timer, area)
 
         btn_refresh.click(
@@ -74,32 +82,22 @@ def build_analysis_view(timer: gr.Timer) -> dict:
         )
 
         # ---------------- 完善 SKILL（基于测试点文档中的完善建议） ----------------
-        _advice_files = list_choices(config.DIR_TEST_POINTS, (".md",))
         with gr.Accordion("完善 SKILL（提取文档完善建议 → 进聊天讨论方案）", open=True):
             gr.Markdown(
                 "提取文档「Skill 完善建议」章节的未知组件/未知场景，"
                 "进聊天讨论完善方案（先出方案，确认后改 `.claude/skills/*.md`）。"
             )
+            advice_dd = gr.Dropdown(
+                label="测试点文档",
+                choices=_advice_files,
+                interactive=True,
+            )
             with gr.Row():
-                with gr.Column(scale=1):
-                    advice_dd = gr.Dropdown(
-                        label="测试点文档",
-                        choices=_advice_files,
-                        interactive=True,
-                    )
-                    with gr.Row():
-                        btn_advice_refresh = gr.Button("刷新文档列表", size="sm")
-                        btn_extract = gr.Button("提取完善建议", size="sm", variant="secondary")
-                        btn_discuss = gr.Button("进聊天讨论方案", size="sm", variant="primary")
-                    advice_md = gr.Markdown("", elem_classes=["advice-table"])
-                    advice_state = gr.State([])
-                with gr.Column(scale=1):
-                    # Gradio Dropdown 加载时自动预选第一项，预览初始值须与其对齐（否则打开页即空白）
-                    advice_preview = gr.Code(
-                        value=read_text(_advice_files[0][1]) if _advice_files else "",
-                        label="文档内容预览", language="markdown",
-                        interactive=False, lines=18, wrap_lines=True,
-                    )
+                btn_advice_refresh = gr.Button("刷新文档列表", size="sm")
+                btn_extract = gr.Button("提取完善建议", size="sm", variant="secondary")
+                btn_discuss = gr.Button("进聊天讨论方案", size="sm", variant="primary")
+            advice_md = gr.Markdown("", elem_classes=["advice-table"])
+            advice_state = gr.State([])
 
         btn_advice_refresh.click(
             lambda: gr.update(choices=list_choices(config.DIR_TEST_POINTS, (".md",))),
@@ -163,12 +161,13 @@ def build_cases_view(timer: gr.Timer) -> dict:
                 btn_start = gr.Button("生成用例 Excel", variant="primary")
             with gr.Column(scale=1):
                 area = build_task_area()
-                # 同测试点分析：预览初始值对齐 Dropdown 的自动预选（第一项）
+                # 预览限高框内滚动；初始值对齐 Dropdown 的自动预选（第一项）
                 _point_files = list_choices(config.DIR_TEST_POINTS, (".md",))
                 point_preview = gr.Code(
                     value=read_text(_point_files[0][1]) if _point_files else "",
                     label="文档内容预览", language="markdown",
-                    interactive=False, lines=18, wrap_lines=True,
+                    interactive=False, wrap_lines=True,
+                    elem_classes=["preview-scroll"],
                 )
         bind_task_area(timer, area)
 
@@ -216,17 +215,17 @@ def build_scripts_view(timer: gr.Timer) -> dict:
                     choices=list_choices(config.DIR_TEST_CASES, (".xlsx",)),
                     interactive=True,
                 )
-                with gr.Row():                      # 第二行：解析 + 刷新
+                with gr.Row():                      # 第二行：解析 + 刷新（同尺寸）
                     btn_parse = gr.Button("解析用例", variant="secondary")
-                    btn_refresh = gr.Button("刷新", size="sm")
+                    btn_refresh = gr.Button("刷新")
                 parse_status = gr.Markdown("")
-                with gr.Row():                      # 第三行：数量上限 + 显示全部
+                with gr.Row():                      # 第三行：数量上限（宽，label 不换行）+ 显示全部（窄，label 换行）
                     limit_num = gr.Number(
                         label="数量上限（留空或 0 = 不限）", value=None, precision=0,
-                        minimum=0, maximum=200, scale=1,
+                        minimum=0, maximum=200, scale=2,
                     )
                     show_all_cb = gr.Checkbox(
-                        label="显示全部用例（含未标记自动化 / 已生成）", value=False, scale=2,
+                        label="显示全部用例（含未标记自动化 / 已生成）", value=False, scale=1,
                     )
                 cases_check = gr.CheckboxGroup(
                     label="勾选要生成的用例（编号 ｜ 自动化状态 ｜ 名称）",
@@ -237,18 +236,19 @@ def build_scripts_view(timer: gr.Timer) -> dict:
                 btn_gen = gr.Button("生成自动化脚本", variant="primary")
             with gr.Column(scale=1):
                 area = build_task_area()
-                # 同测试点分析：预览初始值对齐 Dropdown 的自动预选（第一项）
+                # 预览裁剪前 7 列 + 按列分配宽度（防窄列竖排）；高度与左列下边界对齐（实测校准）
                 _xlsx_files = list_choices(config.DIR_TEST_CASES, (".xlsx",))
                 xlsx_preview = gr.DataFrame(
-                    value=preview_xlsx(_xlsx_files[0][1]) if _xlsx_files else [["（暂无用例 Excel）"]],
-                    label="Excel 内容预览（前 30 行）", interactive=False,
-                    wrap=True, max_height=280,
+                    value=preview_xlsx(_xlsx_files[0][1], max_cols=7) if _xlsx_files else [["（暂无用例 Excel）"]],
+                    label="Excel 内容预览（前 30 行 × 前 7 列）", interactive=False,
+                    wrap=True, max_height=220,
+                    column_widths=["11%", "12%", "13%", "14%", "15%", "17%", "18%"],
                 )
         bind_task_area(timer, area)
 
-        # 选中用例 Excel → 右列预览前 30 行（preview_xlsx 自带空路径兜底）
+        # 选中用例 Excel → 右列预览前 30 行 × 前 7 列（preview_xlsx 自带空路径兜底）
         xlsx_dd.change(
-            preview_xlsx, inputs=[xlsx_dd], outputs=[xlsx_preview],
+            lambda p: preview_xlsx(p, max_cols=7), inputs=[xlsx_dd], outputs=[xlsx_preview],
             show_progress="hidden",
         )
 

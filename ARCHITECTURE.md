@@ -60,6 +60,7 @@ btn.click(_make_switch(idx), outputs=[*view_groups, *sidebar_buttons]).success(f
 8. 组件的 height/overflow/flex-grow 是**内联样式**——CSS 覆盖不要硬对抗（`!important`），利用它（如 height 在 flex item 上恰作 flex-basis）。
 9. **overflow 容器裁剪绝对定位弹层**：视图容器不要加 overflow 限高，否则 Dropdown 选项面板物理不可见（弹出来但看不到，表现为"下拉没反应"）。聊天视图可例外（页内只有内联组件无弹层）。
 10. Python 侧 `from src.xxx import ...`（项目根的 src 包）在 exe frozen 下必炸（src 不在打包依赖，且顶层 import playwright）——读取项目文件配置用 `ast.parse` 静态解析，见 views_ops.py `_extract_browser_config`。
+11. **gr.DataFrame 自带行号列**（约占 40px 宽，挤占业务列空间）；列宽过窄时表头中文会**竖排**（每字一行）——用 `column_widths` 比例列表分配，保证窄列 ≥ 两个中文字宽；`max_height` 是滚动上限，**内容不足时组件变矮**（依赖固定高度对齐的布局注意，见脚本生成页 Excel 预览）。
 
 ## 验证惯例
 

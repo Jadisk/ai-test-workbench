@@ -43,8 +43,8 @@ def read_text(path: str | Path, max_chars: int = 80_000) -> str:
     return text
 
 
-def preview_xlsx(path: str, max_rows: int = 30) -> list[list]:
-    """xlsx 首个 Sheet 前 N 行 → 二维列表（gr.DataFrame 直接可用）。"""
+def preview_xlsx(path: str, max_rows: int = 30, max_cols: int | None = None) -> list[list]:
+    """xlsx 首个 Sheet 前 N 行 → 二维列表（gr.DataFrame 直接可用）；max_cols 裁剪列数。"""
     if not path:
         return [["（请先选择文件）"]]
     try:
@@ -61,6 +61,9 @@ def preview_xlsx(path: str, max_rows: int = 30) -> list[list]:
             return [["（空表格）"]]
         header = rows[0]
         body = rows[1:]
+        if max_cols:
+            header = header[:max_cols]
+            body = [r[:max_cols] for r in body]
         width = len(header)
         return [header] + [(r + [""] * width)[:width] for r in body]
     except Exception as exc:
