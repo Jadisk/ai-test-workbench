@@ -67,5 +67,40 @@ btn.click(_make_switch(idx), outputs=[*view_groups, *sidebar_buttons]).success(f
 
 - playwright headless msedge，viewport 对齐当前窗口默认尺寸（launcher.py `_open_window`）。
 - 服务在验证脚本内以 **7861 端口**线程启动（避免与运行中的 7860 实例冲突）；`config.PORT = 7861` 必须在 `import workbench.app` 之前。
-- 临时验证脚本放 `.tmp/`，成功后删除。
+- 临时验证脚本放 `.tmp/`，成功后删除（**不保留上轮整脚本**——断言绑定当轮改动必过期；样板骨架在下方，每轮复制 + 写当轮断言）。
 - 改动完成后更新 `UI-CHANGES.md`：本轮报告置顶 + 上轮收编历史章节（保留踩坑记录的引用价值）。
+
+### 标准验证骨架（每轮复制此样板，只写当轮断言）
+
+```python
+# .tmp/verify_roundN.py —— 成功后删除
+import sys, threading, time, urllib.request
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import uvicorn
+import workbench.config as config
+config.PORT = 7861                      # 必须在 import workbench.app 之前
+from workbench.app import app
+server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=7861, log_level="warning"))
+threading.Thread(target=server.run, daemon=True).start()
+for _ in range(50):                     # 等端口就绪
+    time.sleep(0.2)
+    try: urllib.request.urlopen("http://127.0.0.1:7861/", timeout=1); break
+    except Exception: pass
+
+from playwright.sync_api import sync_playwright
+with sync_playwright() as p:
+    browser = p.chromium.launch(channel="msedge", headless=True)
+    page = browser.new_page(viewport={"width": 1400, "height": 800})
+    page.goto("http://127.0.0.1:7861/", wait_until="domcontentloaded")
+    page.wait_for_selector(".sidebar button", timeout=20000)
+    # 坑 4：隐藏视图初始 DOM 不存在，必须先点击切视图、再等元素挂载
+    page.locator(".sidebar button", has_text="脚本生成").click()
+    page.wait_for_selector("<当轮目标元素>", timeout=20000)
+    # ……当轮断言（fail-fast：前序断言失败则跳过依赖它的后续断言）……
+    page.screenshot(path="screenshots/debug/roundN.png")
+    browser.close()
+```
+
+- 断言几何前先确认元素可见（视图已切换）；DataFrame 类断言注意 sticky 表头 + 数据两个 table（坑 11，th 按文本去重）。
+- **诊断定序**（UI 行为与坑清单矛盾时）：第 1 轮脚本就「截图 + dump DOM」合并诊断 → 第 2 轮 `git stash` 对照实验（排除自己改坏 vs 环境行为）→ 再深挖环境。不要先改等待策略盲试。
