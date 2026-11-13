@@ -53,14 +53,14 @@ btn.click(_make_switch(idx), outputs=[*view_groups, *sidebar_buttons]).success(f
 1. **Dropdown 标题不是 `<label>` 元素**——按 label 定位下拉不可行；每个视图可见的 `.secondary-wrap` 唯一，直接点它。
 2. Dropdown 的 input **没有 `type` attribute**，`input[type=text]` 选择器永远匹配 0 个。
 3. **Dropdown 加载时自动预选第一项**：点击当前选中项不触发 change（不发 queue/join）；验证切换必须点非 selected 项。连带要求：依赖 change 回填的组件（如文件预览）初始 value 须对齐预选的第一项，否则打开页即空白。
-4. **7 个视图 DOM 常驻**（隐藏视图 display:none）：`.first` 会命中隐藏组件导致 click 超时，选择器务必加 `:visible` 或 offsetParent 过滤。
+4. **隐藏视图懒渲染**（实测修正，旧结论「7 视图 DOM 常驻」已过时）：初始只渲染可见视图（聊天），其余 6 视图的 DOM **不存在**；侧边栏点击触发 `visible=True` 事件后才挂载（约 1~2 秒），挂载后常驻。playwright 验证必须**先点侧边栏按钮、再 `wait_for_selector`**，对隐藏视图做 attached 等待永远超时。
 5. **gr.Code 内容渲染在 CodeMirror**（`.cm-content`），不是 `pre code`；各组件标题/内容元素不一致（label/pre/textarea/cm-content 混用），断言按「叶子 block 的 innerText 匹配 + 内部多种内容元素兜底」最稳（叶子 block = 不含嵌套 `.block`）。
 6. Accordion 折叠时内容 DOM 在但 offsetParent 为 null——验证前先展开。
 7. **Group 真实 DOM 是 `.gr-group > .styler > 子组件`**：flex 布局必须作用于 `.styler`，作用于 `.gr-group` 不影响组件。
 8. 组件的 height/overflow/flex-grow 是**内联样式**——CSS 覆盖不要硬对抗（`!important`），利用它（如 height 在 flex item 上恰作 flex-basis）。
 9. **overflow 容器裁剪绝对定位弹层**：视图容器不要加 overflow 限高，否则 Dropdown 选项面板物理不可见（弹出来但看不到，表现为"下拉没反应"）。聊天视图可例外（页内只有内联组件无弹层）。
 10. Python 侧 `from src.xxx import ...`（项目根的 src 包）在 exe frozen 下必炸（src 不在打包依赖，且顶层 import playwright）——读取项目文件配置用 `ast.parse` 静态解析，见 views_ops.py `_extract_browser_config`。
-11. **gr.DataFrame 自带行号列**（约占 40px 宽，挤占业务列空间）；列宽过窄时表头中文会**竖排**（每字一行）；**无 `height` 参数**（固定高度用 CSS）；`max_height` 是滚动上限、内容不足时组件变矮；`column_widths` 总宽超过容器时会被**等比缩放回容器宽、不产生横向滚动**——需要横向滚动用 CSS 强制 `table { min-width: … }` + 容器 `overflow-x: auto`（见脚本生成页 `.excel-preview`）。
+11. **gr.DataFrame 自带行号列**（约占 40px 宽，挤占业务列空间）；列宽过窄时表头中文会**竖排**（每字一行，窄列加 `min-width: 56px` 下限防竖排）；**无 `height` 参数**（固定高度用 CSS）；`max_height` 是滚动上限、内容不足时组件变矮；`column_widths` 总宽超过容器时会被**等比缩放回容器宽、不产生横向滚动**；传二维列表时**首行被当数据行，列名须拆到 `headers` 参数**（否则表头显示列序号 1..N）。默认 `table-layout: auto` 按内容量分配列宽（去掉强制宽度后即生效）。
 12. 组件 `max-height` 类 CSS 是上限，**内容短时组件变矮**——需要"恒定高度占位"（如预览框、空列表占位）用 `height` / `min-height`（见 `.preview-tall` / `.cases-placeholder`）。
 
 ## 验证惯例

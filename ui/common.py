@@ -43,8 +43,15 @@ def read_text(path: str | Path, max_chars: int = 80_000) -> str:
     return text
 
 
-def preview_xlsx(path: str, max_rows: int = 30, max_cols: int | None = None) -> list[list]:
-    """xlsx 首个 Sheet 前 N 行 → 二维列表（gr.DataFrame 直接可用）；max_cols 裁剪列数。"""
+def preview_xlsx(
+    path: str, max_rows: int = 30, max_cols: int | None = None,
+    cols: tuple[str, ...] | None = None,
+) -> list[list]:
+    """xlsx 首个 Sheet 前 N 行 → 二维列表（gr.DataFrame 直接可用）。
+
+    cols：按首行表头名保留指定列，输出列序跟随 cols 给定顺序（一个未命中则不筛、返回全列）；
+    max_cols：按位置裁剪前 N 列。cols 与 max_cols 同传时 cols 优先。
+    """
     if not path:
         return [["（请先选择文件）"]]
     try:
@@ -61,7 +68,15 @@ def preview_xlsx(path: str, max_rows: int = 30, max_cols: int | None = None) -> 
             return [["（空表格）"]]
         header = rows[0]
         body = rows[1:]
-        if max_cols:
+        if cols:
+            # 按表头名取各列位置（保持 cols 顺序）；全部未命中则不筛列（非标准 Excel 显示原貌）
+            index = [header.index(name) if name in header else -1 for name in cols]
+            if any(i >= 0 for i in index):
+                width = len(index)
+                header = [header[i] if i >= 0 else "" for i in index]
+                body = [[(r[i] if 0 <= i < len(r) else "") for i in index] for r in body]
+                return [header] + [(r + [""] * width)[:width] for r in body]
+        elif max_cols:
             header = header[:max_cols]
             body = [r[:max_cols] for r in body]
         width = len(header)

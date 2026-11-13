@@ -41,9 +41,10 @@ _CSS = """
 /* 脚本生成勾选列表：未解析时保留占位高度（与解析后网格高度一致，左右列始终齐平） */
 .cases-placeholder .wrap { min-height: 260px; }
 /* 脚本生成 Excel 预览：固定高度（与左列解析后下边界对齐，实测校准）；
-   表格强制 860px 宽（Gradio column_widths 总宽超容器会被等比缩放、不出滚动条，故用 CSS）→ 容器横向滚动 */
+   列宽交还浏览器按内容自动分配（预览只留 4 个关键列，容器 ~510px 可完整展示，无需横滚）；
+   min-width 56px 防窄列（如「优先级」仅 P1/P2）表头中文竖排（坑 11）；overflow-x 留作全列兜底 */
 .excel-preview { height: 560px; overflow-x: auto; }
-.excel-preview table { min-width: 860px; width: 860px; }
+.excel-preview th, .excel-preview td { min-width: 56px; }
 /* 联想候选：CLI 风格（等宽、左对齐、hover 高亮成整行蓝底） */
 .suggest-panel button { font-family: Consolas, "Courier New", monospace; text-align: left; justify-content: flex-start; }
 .suggest-panel button:hover { background: #e3e7fd; }

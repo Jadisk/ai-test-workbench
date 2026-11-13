@@ -237,19 +237,31 @@ def build_scripts_view(timer: gr.Timer) -> dict:
                 btn_gen = gr.Button("生成自动化脚本", variant="primary")
             with gr.Column(scale=1):
                 area = build_task_area()
-                # 预览裁剪前 7 列；固定像素列宽（总宽超容器→横向滚动，视口约 4~5 列）；
-                # 高度与左列「解析后」对齐（实测校准），未解析时由左列占位高度保持齐平
+                # 预览只保留 4 个关键列（编号/优先级/步骤/预期结果）——容器 ~510px 内 7 列必横滚截断，
+                # 4 列按内容分配列宽可完整展示；高度与左列「解析后」对齐（实测校准），未解析时由左列占位高度保持齐平
+                # gr.DataFrame 传二维列表时首行会被当数据行，列名须拆到 headers 参数（否则表头显示列序号）
                 _xlsx_files = list_choices(config.DIR_TEST_CASES, (".xlsx",))
+                _data = preview_xlsx(
+                    _xlsx_files[0][1], cols=("用例编号", "优先级", "测试步骤", "预期结果"),
+                ) if _xlsx_files else [["（暂无用例 Excel）"]]
+                _has_header = len(_data) > 1
                 xlsx_preview = gr.DataFrame(
-                    value=preview_xlsx(_xlsx_files[0][1], max_cols=7) if _xlsx_files else [["（暂无用例 Excel）"]],
-                    label="Excel 内容预览（前 30 行 × 前 7 列）", interactive=False,
-                    wrap=True, elem_classes=["excel-preview"],   # 固定高度+强制表格宽→横向滚动（Gradio 无 height/column_widths 溢出能力，CSS 控制）
+                    value=_data[1:] if _has_header else _data,
+                    headers=_data[0] if _has_header else None,
+                    label="Excel 内容预览（前 30 行 ｜ 编号 / 优先级 / 测试步骤 / 预期结果）", interactive=False,
+                    wrap=True, elem_classes=["excel-preview"],   # 固定高度（Gradio 无 height 参数，CSS 控制）；列宽自适应容器
                 )
         bind_task_area(timer, area)
 
-        # 选中用例 Excel → 右列预览前 30 行 × 前 7 列（preview_xlsx 自带空路径兜底）
+        # 选中用例 Excel → 右列预览前 30 行 × 4 关键列（preview_xlsx 自带空路径兜底）
+        def _preview_update(p):
+            data = preview_xlsx(p, cols=("用例编号", "优先级", "测试步骤", "预期结果"))
+            if len(data) > 1:
+                return gr.update(value=data[1:], headers=data[0])
+            return gr.update(value=data)          # 占位/异常单行：无列名
+
         xlsx_dd.change(
-            lambda p: preview_xlsx(p, max_cols=7), inputs=[xlsx_dd], outputs=[xlsx_preview],
+            _preview_update, inputs=[xlsx_dd], outputs=[xlsx_preview],
             show_progress="hidden",
         )
 
