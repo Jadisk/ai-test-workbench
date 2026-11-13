@@ -121,6 +121,21 @@ def _start_server_thread(host: str, port: int):
     return server, thread
 
 
+def _log_claude_check() -> None:
+    """启动自检：claude CLI 解析结果与存在性落日志（exe 环境差异排查锚点）。"""
+    try:
+        import shutil
+
+        from workbench import config
+        exe = config.resolve_claude_exe()
+        resolved = shutil.which(exe) or exe
+        _print(f"claude CLI 自检：{resolved}（存在={Path(resolved).exists()}）")
+    except FileNotFoundError as exc:
+        _print(f"claude CLI 自检失败：{exc}")
+    except Exception as exc:  # noqa: BLE001  自检绝不阻断启动
+        _print(f"claude CLI 自检出错：{exc}")
+
+
 def main() -> None:
     multiprocessing.freeze_support()  # frozen 多进程兜底
     _ensure_streams()                 # windowed 模式 stdout/stderr 为 None 的兜底（须最先）
@@ -140,6 +155,7 @@ def main() -> None:
     elif window_enabled:
         server, server_thread = _start_server_thread(host, port)
         _print(f"服务启动中：{url}（项目根 {config.PROJECT_ROOT}）")
+        _log_claude_check()
         if not _wait_ready(url):
             _print("服务启动超时，请查看上方日志排查；窗口将仍尝试打开页面")
 
@@ -150,6 +166,7 @@ def main() -> None:
         if server is None:
             server, server_thread = _start_server_thread(host, port)
             _print(f"服务启动中：{url}（项目根 {config.PROJECT_ROOT}）")
+            _log_claude_check()
             _wait_ready(url)
         _print("纯服务模式运行中（Ctrl+C 退出）")
         try:

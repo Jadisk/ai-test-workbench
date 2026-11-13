@@ -299,6 +299,8 @@ def bind_task_area(timer: gr.Timer, area: dict) -> None:
         progress = compact_progress_md(job.events) if job.status == "running" else ""
         if job.status == "running":
             result = "（任务执行中，结束后在此展示结果概览）"
+        elif job.status == "stopped":
+            result = "（任务已手动停止，未产出结果）"
         else:
             result = job.result_text or "（无结果文本）"
         return info["status_md"], progress, result

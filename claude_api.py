@@ -102,6 +102,7 @@ class ClaudeStream:
         self.resume_session = resume_session
         self.session_id: Optional[str] = None
         self.proc: Optional[subprocess.Popen] = None
+        self._stderr: Optional[_DrainThread] = None  # stderr 排空线程（stderr_lines() 取排查内容）
         self._pending_tools: dict[str, str] = {}  # tool_use_id → 工具名（用于匹配 tool_result）
 
     def __iter__(self) -> Iterator[dict]:
@@ -112,6 +113,7 @@ class ClaudeStream:
             self.proc = subprocess.Popen(
                 cmd,
                 cwd=str(config.PROJECT_ROOT),
+                stdin=subprocess.DEVNULL,  # 不继承父进程句柄：windowed exe 下继承到的可能是无效句柄
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,  # 由守护线程排空，避免管道塞满死锁
                 text=True,
@@ -126,6 +128,7 @@ class ClaudeStream:
             return
 
         stderr_thread = _DrainThread(self.proc.stderr)
+        self._stderr = stderr_thread  # 暴露给 stderr_lines()：任务异常时落日志排查
         stderr_thread.start()
         try:
             yield from self._iter_events()
@@ -195,6 +198,10 @@ class ClaudeStream:
         proc = self.proc
         if proc is not None and proc.poll() is None:
             kill_process_tree(proc.pid)
+
+    def stderr_lines(self) -> list[str]:
+        """子进程 stderr 已收集的行（最多 50 行，任务结束/异常时落日志用于排查）。"""
+        return list(self._stderr.lines) if self._stderr is not None else []
 
 
 class _DrainThread:

@@ -201,7 +201,9 @@ class JobManager:
                     job.save()
             # Popen 的退出码属性是 returncode（不是 exitcode）
             job.exit_code = stream.proc.returncode if stream.proc else None
-            if job.result_text is None:
+            if job.status == "stopped":
+                pass  # 手动停止：保持 stopped，不覆盖为 error
+            elif job.result_text is None:
                 job.status = "error"
             elif job.exit_code not in (0, None):
                 job.status = "error"
@@ -212,6 +214,10 @@ class JobManager:
             job.status = "error"
             job.log(f"任务异常：{exc}")
         finally:
+            # 子进程 stderr 排空线程收集的内容落日志（有内容才写）：零输出/异常卡死类问题的关键证据
+            stderr_tail = stream.stderr_lines()
+            if stderr_tail:
+                job.log("claude stderr（尾部）：\n" + "\n".join(stderr_tail[-10:]))
             job.finished_at = _now()
             job.save()
             self._procs.pop(job.id, None)
@@ -240,7 +246,8 @@ class JobManager:
 
             summary = pytest_api.parse_junitxml(Path(job.meta["junitxml"]))
             job.meta["summary"] = summary
-            job.status = "done" if job.exit_code in (0, 1) else "error"
+            if job.status != "stopped":  # 手动停止：保持 stopped，不覆盖为 error
+                job.status = "done" if job.exit_code in (0, 1) else "error"
             # 退出码 0=全过 1=有用例失败（属正常完成）；2+=收集/中断错误
             job.log(
                 f"任务结束 status={job.status} exit={job.exit_code} "
@@ -280,7 +287,9 @@ class JobManager:
             holder.stop()
         elif isinstance(holder, dict) and "proc" in holder:
             claude_api.kill_process_tree(holder["proc"].pid)
+        job.status = "stopped"   # 中性终态：收尾线程见到 stopped 不再覆盖为 error
         job.log("⚠ 收到停止指令")
+        job.save()
         return True
 
 

@@ -62,6 +62,7 @@ btn.click(_make_switch(idx), outputs=[*view_groups, *sidebar_buttons]).success(f
 10. Python 侧 `from src.xxx import ...`（项目根的 src 包）在 exe frozen 下必炸（src 不在打包依赖，且顶层 import playwright）——读取项目文件配置用 `ast.parse` 静态解析，见 views_ops.py `_extract_browser_config`。
 11. **gr.DataFrame 自带行号列**（约占 40px 宽，挤占业务列空间）；列宽过窄时表头中文会**竖排**（每字一行，窄列加 `min-width: 56px` 下限防竖排）；**无 `height` 参数**（固定高度用 CSS）；`max_height` 是滚动上限、内容不足时组件变矮；`column_widths` 总宽超过容器时会被**等比缩放回容器宽、不产生横向滚动**；传二维列表时**首行被当数据行，列名须拆到 `headers` 参数**（否则表头显示列序号 1..N）。默认 `table-layout: auto` 按内容量分配列宽（去掉强制宽度后即生效）。
 12. 组件 `max-height` 类 CSS 是上限，**内容短时组件变矮**——需要"恒定高度占位"（如预览框、空列表占位）用 `height` / `min-height`（见 `.preview-tall` / `.cases-placeholder`）。
+13. **windowed exe 下 claude 子进程可能零输出挂死**（2026-11-13 实证：claude.exe 活着、stdout/stderr 零字节、任务永远 running 面板「等待事件流」）。已证伪的假设——终端 / pythonw / `SetStdHandle(NULL)` 三种模拟均正常（claude 对无数据 stdin 有 3 秒兜底继续），cwd/认证/网络也正常，根因未锁定（疑 exe 引导层或安全软件对未签名 exe 子进程的干预）。**复现时的观测入口**：①任务日志尾部的「claude stderr（尾部）」（`jobs._run_claude` finally 落盘）②launcher 启动自检的 claude CLI 路径行。`ClaudeStream` 已用 `stdin=subprocess.DEVNULL` 兜底句柄继承（非确认修复，无害实践）。手动停止的终态是 `stopped`（中性「已停止」），收尾线程见到 stopped 不覆盖为 error。
 
 ## 验证惯例
 
