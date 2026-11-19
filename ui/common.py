@@ -244,6 +244,8 @@ def event_to_message(event: dict) -> Optional[dict]:
         return {"role": "assistant", "content": f"[工具] {event.get('name')}{detail}"}
     if kind == "tool_error":
         return {"role": "assistant", "content": f"[被拒绝] {event.get('name')}：{event.get('detail')}"}
+    if kind == "fatal":
+        return {"role": "assistant", "content": f"⚠ {event.get('line', '')}"}
     if kind == "text":
         return {"role": "assistant", "content": event.get("text", "")}
     if kind == "result":
@@ -257,9 +259,10 @@ def event_to_message(event: dict) -> Optional[dict]:
 # 页签内嵌任务区：状态行 + 精简过程 + 结果概览
 # ---------------------------------------------------------------------------
 def compact_progress_md(events: list[dict], recent: int = 5) -> str:
-    """任务事件流 → 精简过程 Markdown（工具调用计数 + 最近 N 条摘要 + 出错项）。"""
+    """任务事件流 → 精简过程 Markdown（工具调用计数 + 最近 N 条摘要 + 出错/致命项）。"""
     tools = [e for e in events if e.get("kind") == "tool"]
     errors = [e for e in events if e.get("kind") == "tool_error"]
+    fatals = [e for e in events if e.get("kind") == "fatal"]
     if not events:
         return "等待事件流…"
     head = f"已执行 {len(tools)} 次工具调用"
@@ -271,6 +274,8 @@ def compact_progress_md(events: list[dict], recent: int = 5) -> str:
         lines.append(f"- {e.get('name')}{detail}")
     for e in errors[-3:]:
         lines.append(f"- ⚠ [{e.get('name')}] {e.get('detail')}")
+    for e in fatals[-1:]:
+        lines.append(f"- ⚠ {e.get('line', '')}")
     return "\n".join(lines)
 
 

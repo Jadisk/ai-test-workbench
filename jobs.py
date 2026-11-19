@@ -100,6 +100,8 @@ class Job:
             self.log(f"[tool] {event.get('name')}{detail}")
         elif kind == "tool_error":
             self.log(f"[tool_error] {event.get('name')}：{event.get('detail')}")
+        elif kind == "fatal":
+            self.log(f"[fatal] {event.get('line', '')}")
         elif kind == "text":
             self.log("── assistant ──")
             for text_line in event.get("text", "").splitlines() or [""]:

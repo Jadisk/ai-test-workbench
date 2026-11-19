@@ -43,6 +43,8 @@ def stream_chat(prompt: str, display_text: str, history: list, session_id: str |
     reply = ""
     history.append({"role": "assistant", "content": ""})
     tool_note = ""
+    # 立即上屏：user 消息 + assistant 占位先出一帧，不等 CLI 冷启动/模型首包（约 10 秒）
+    yield history, gr.update(), session_id, "正在连接 claude…"
     try:
         for event in stream:
             if event["kind"] == "text":
@@ -56,6 +58,10 @@ def stream_chat(prompt: str, display_text: str, history: list, session_id: str |
             elif event["kind"] == "tool_error":
                 tool_note = f"⚠ {event.get('name')} 执行出错：{event.get('detail')}"
                 yield history, gr.update(value=None), session_id, tool_note
+            elif event["kind"] == "fatal":
+                # 启动级失败进聊天流（状态行/toast 易被忽略），不依赖后续事件
+                history[-1] = {"role": "assistant", "content": f"⚠ {event.get('line', '')}"}
+                yield history, gr.update(value=None), session_id, event.get("line", "")
             elif event["kind"] == "result":
                 if event.get("text"):
                     reply = event["text"]

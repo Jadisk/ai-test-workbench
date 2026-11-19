@@ -141,7 +141,8 @@ def build_analysis_view(timer: gr.Timer) -> dict:
 # 用例生成视图
 # ---------------------------------------------------------------------------
 def build_cases_view(timer: gr.Timer) -> dict:
-    with gr.Group(visible=False) as view:
+    # elem_classes=["cases-view"]：右列弹性布局锚点（预览占满剩余高、单层滚动，见 __init__ CSS）
+    with gr.Group(visible=False, elem_classes=["cases-view"]) as view:
         gr.Markdown(
             "### 用例生成　选择 `test-points/` 测试点文档（最新在前），"
             "生成标准 12 列用例 Excel 到 `test-cases/`。"

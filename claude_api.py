@@ -16,14 +16,17 @@ from typing import Iterator, Optional
 from . import config
 
 
-def build_claude_cmd(prompt: str, resume_session: Optional[str] = None) -> list[str]:
-    """构建 claude headless 命令。
+def build_claude_cmd(resume_session: Optional[str] = None) -> list[str]:
+    """构建 claude headless 命令（prompt 经 stdin 传入，见 ClaudeStream.__iter__）。
 
     stream-json 输出逐行 JSON 事件（init / assistant / result），支持 --resume 多轮会话。
+    prompt 绝不能放 argv：解析到的 claude 可能是 .cmd 批处理 shim，cmd.exe 按行解析
+    命令行，多行 prompt 会被截断且其后的所有参数（--output-format/--permission-mode）
+    一并丢失，表现为「回复走 stderr、权限审批挂死」（2026-11-19 实证）。
     """
     cmd = [
         config.resolve_claude_exe(),
-        "-p", prompt,
+        "-p",
         "--output-format", "stream-json",
         "--verbose",  # headless 下使用 stream-json 必须带 --verbose
         "--permission-mode", config.CLAUDE_PERMISSION_MODE,
@@ -93,6 +96,7 @@ class ClaudeStream:
         {"kind": "tool_error", "name": str, "detail": str}     # 工具执行出错（权限拒绝等）
         {"kind": "result", "text": str, "session_id": str,
          "is_error": bool, "cost_usd": float | None}           # 最终结果
+        {"kind": "fatal",  "line": str}                        # 致命启动错误（CLI 未找到等），应进聊天流
         {"kind": "exit",   "code": int | None}                 # 进程退出
         {"kind": "stderr", "line": str}                        # 非 JSON 输出（警告等）
     """
@@ -108,12 +112,12 @@ class ClaudeStream:
     def __iter__(self) -> Iterator[dict]:
         if self.proc is not None:
             raise RuntimeError("ClaudeStream 不可重复迭代，请重新创建实例")
-        cmd = build_claude_cmd(self.prompt, self.resume_session)
+        cmd = build_claude_cmd(self.resume_session)
         try:
             self.proc = subprocess.Popen(
                 cmd,
                 cwd=str(config.PROJECT_ROOT),
-                stdin=subprocess.DEVNULL,  # 不继承父进程句柄：windowed exe 下继承到的可能是无效句柄
+                stdin=subprocess.PIPE,  # prompt 写入 stdin 后立即关闭；PIPE 同样不继承父进程句柄
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,  # 由守护线程排空，避免管道塞满死锁
                 text=True,
@@ -123,9 +127,18 @@ class ClaudeStream:
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0,
             )
         except FileNotFoundError as exc:
-            yield {"kind": "stderr", "line": f"启动 claude CLI 失败：{exc}"}
+            yield {"kind": "fatal", "line": f"启动 claude CLI 失败：{exc}"}
             yield {"kind": "exit", "code": -1}
             return
+
+        # prompt 经 stdin 传入并关闭：绕开 cmd 批处理 shim 的命令行截断；管道满时
+        # claude 会持续消费 stdin 直至 EOF，不会死锁。写入失败（如进程秒退）不致命，
+        # 错误由后续 stdout/stderr 事件呈现
+        try:
+            self.proc.stdin.write(self.prompt)
+            self.proc.stdin.close()
+        except Exception:
+            pass
 
         stderr_thread = _DrainThread(self.proc.stderr)
         self._stderr = stderr_thread  # 暴露给 stderr_lines()：任务异常时落日志排查

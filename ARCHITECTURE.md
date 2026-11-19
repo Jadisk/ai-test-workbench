@@ -69,6 +69,12 @@ btn.click(_make_switch(idx), outputs=[*view_groups, *sidebar_buttons]).success(f
 14. **聊天弹性布局的两个 flex/DOM 坑**（2026-11-19 修复输入框顶掉按钮时实证）：
     - **styler 的 flex item 是带 container 组件的外层 `.form` 包装，不是 `.block`**（补充坑 7）：给 `.block`（如 `.multimodal-textbox`）设 flex-shrink 无效；form 被压缩时其内容 block 按自然高度溢出 form 画到容器外（overflow visible），按钮反被顶开。输入框不收缩应写 `.chat-view .form { flex-shrink: 0 }`。
     - **Textbox/MultimodalTextarea 的 autoresize 持续改写 textarea 内联 `height`**（封顶 `max_lines` 行，12 行 ~255px），内容多时会把组件底部发送/贴文件按钮顶出视口（小窗口/DPI 缩放更易触发）。CSS `max-height` 与内联 `height` 独立生效（实际渲染高取 min，无需 !important）可封顶；超限后 textarea 自身滚动（action 恒设 `overflowY: scroll`）。当前方案 `max-height: min(220px, calc(100vh - 420px))`（420 = 预留 160 + chatbot 下限 160 + status ~20 + 输入框外壳 ~58 + 缓冲）+ `.chat-view .form { flex-shrink: 0 }`（让位全由 chatbot 吸收）。实测 1400×800 / 1120×640（125% DPI）/ 933×533（150% DPI）三档视口灌满输入框，按钮均在视口内。
+15. **claude 子进程绝不能把 prompt 放 argv**（2026-11-19 实证修复，v1.8）：`resolve_claude_exe()` 解析到的可能是 npm shim `claude.cmd`——Popen 经 cmd.exe 执行 .cmd 时**多行 prompt 在首个换行处截断，且其后的所有 argv（`--output-format stream-json`、`--permission-mode bypassPermissions`）一并丢失**。后果链：claude 降级纯文本输出（stdout 非 JSON 行被 ClaudeStream 归为 stderr、无 result → 任务 error）+ 默认权限模式（Bash 审批挂死）+ 模型只收到半截消息。**修复：prompt 走 stdin**（`claude -p --output-format ...` 不带 prompt 参数，Popen 后写 stdin 并关闭，见 claude_api.py）。验证暗号法：多行 prompt 第 3 行放暗号让模型复述。另：双击 exe 的 PATH 来自 explorer 快照，fnm/node 装好后旧常驻实例可能解析不到 CLI（21:10 实例 FileNotFoundError、21:33 重启后恢复）——fatal 事件现已进聊天流可感知。
+16. **Gradio 自定义 CSS 里 @media 基本不可用**（2026-11-19 v1.8 实证）：Gradio 会把 `css=` 字符串处理成两份注入——裸选择器原样 + `.gradio-container.gradio-container-X .contain <sel>` 前缀副本。后果：①`@media` 内的裸规则被丢弃、只留前缀副本；②前缀副本里的 `:root` 永不匹配（html 不可能是 .contain 后代）。→ 小视口自适应不要用 @media 改 `:root` 变量（写了不生效且无报错）；如确需媒体查询，作用对象必须是普通类选择器并实测验证生效。
+17. **flex column 容器包裹 Gradio 组件的三个连环坑**（2026-11-19 用例生成页弹性布局实证，排查耗时数小时）：
+    - **`.column` 默认 `flex-wrap: wrap`**：子组件自然高超过容器高时**横向「换列」**——预览框被推到容器右边界之外（left=列右界），视觉整框空白且极易误判为 CodeMirror 渲染问题。必须 `flex-wrap: nowrap` 让 flex-shrink 正常压缩。同时 Row 是 `equal_height=False`（align-items: flex-start）时列不拉伸，子项 `height:100%` 才能锚定行高。
+    - **Gradio `.block` 自带 `margin: 0 auto`**：在 flex 容器交叉轴上 auto margin 吸收全部空间把子项推到另一侧（block 流布局下无效所以平时不暴露）——flex 化的容器内显式 `margin-left/right: 0`。
+    - **CodeMirror 不可强约束高度**：给 `.codemirror-wrapper/.cm-editor/.cm-scroller` 设 `height:100%` 链后，懒挂载（display:none→显示）时其虚拟视口测量失准——行在 DOM（gutter/文本齐全、颜色正常）却整框空白。正确做法：**外框（`.block` 层）flex 分配高度 + overflow-y:auto 作唯一滚动宿主，CodeMirror 保持自然高全渲染**。排查此类「空白」先 dump 子元素 `getBoundingClientRect()` 确认位置是否在容器外，再怀疑渲染。
 
 ## 验证惯例
 

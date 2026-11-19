@@ -72,6 +72,9 @@ def _setup_file_logging() -> None:
         handler = logging.FileHandler(log_dir / _LAUNCHER_LOG, encoding="utf-8")
         handler.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s"))
         logging.basicConfig(level=logging.INFO, handlers=[handler])
+        # Timer 每 2 秒 5-6 个轮询事件，queue/join 访问日志会无限膨胀（曾 2 小时 257KB），
+        # 落盘只留 WARNING 以上（启动器排错靠 uvicorn.error / 应用 Traceback，均已覆盖）
+        logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
     except Exception:
         pass
 

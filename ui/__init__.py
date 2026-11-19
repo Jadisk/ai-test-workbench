@@ -46,8 +46,35 @@ _CSS = """
 .cases-list .wrap label .label-text { white-space: normal; overflow-wrap: anywhere; }
 /* 文档内容预览限高：内容长时框内滚动、不撑长页面（预览组件内无弹层，overflow 安全） */
 .preview-scroll { max-height: 400px; overflow-y: auto; }
-/* 用例生成页预览加高：固定高度（内容短时也保留；620+空任务区74≈可视高700，实测校准） */
-.preview-scroll.preview-tall { height: 620px; max-height: none; }
+/* 用例生成页弹性布局（v1.8）：视图填满视口剩余高、右列预览占剩余空间，消除
+   「预览外框 + cm-scroller 双层滚动 + 页面溢出 72px」三处滚动（下拉弹层在左列，右列限高安全）。
+   --chat-reserved 与聊天页共用（头部+页脚+容器 padding，结构一致） */
+.cases-view { height: calc(100vh - var(--chat-reserved)); }
+.cases-view .styler { display: flex; flex-direction: column; height: 100%; }
+.cases-view .styler > .block { flex-shrink: 0; }  /* 视图标题：否则被 flex 压缩成数 px、文字溢出与按钮重叠 */
+.cases-view .styler > .row { flex: 1 1 auto; min-height: 0; }
+/* Row 是 equal_height=False（align-items: flex-start）：列不拉伸、各按内容高，
+   须显式 height:100% 锚定行高，否则右列被预览内容撑到 3000+px；
+   列自身须为 flex 容器预览的 flex:1 才生效（否则 height:auto 按内容撑开）；
+   nowrap 必须：Gradio .column 默认 flex-wrap:wrap，子项（自然高 3000+ 的预览）超出
+   容器高时会被横向「换列」推到右列右界之外（视觉整框空白，v1.8 实证两小时才揪出） */
+.cases-view .row > .column {
+  display: flex; flex-direction: column; flex-wrap: nowrap;
+  height: 100%; min-height: 0;
+}
+.cases-view .task-area { flex-shrink: 0; }
+/* 预览从固定 620px 改弹性：外框 flex 分配高、自身是唯一滚动宿主。Gradio Code 的 svelte
+   规则给 wrapper/cm-editor 链设了 height:100%，懒挂载（display:none→显示）后 CodeMirror
+   虚拟视口测量失准，内容在 DOM 却整框空白——中和为自然高恢复全渲染（!important 对抗
+   svelte 内联优先级，此处必要；曾两度实测空白） */
+.cases-view .preview-scroll.preview-tall {
+  height: auto; max-height: none; flex: 1 1 auto; min-height: 220px;
+  /* column 变 flex 后 Gradio .block 的 margin auto 在交叉轴吸空间，预览框被推到列右界外（视觉整框空白） */
+  margin-left: 0; margin-right: 0;
+}
+.cases-view .preview-tall .codemirror-wrapper,
+.cases-view .preview-tall .cm-editor,
+.cases-view .preview-tall .cm-scroller { height: auto !important; max-height: none !important; }
 /* 脚本生成勾选列表：未解析时保留占位高度（与解析后网格高度一致，左右列始终齐平） */
 .cases-placeholder .wrap { min-height: 260px; }
 /* 脚本生成 Excel 预览：固定高度（与左列解析后下边界对齐，实测校准）；
