@@ -1,6 +1,6 @@
 # 工作台迭代报告（第九轮 · 修复 · 2026-11-20 · v1.9）
 
-> 写给下一轮迭代的规则：①本文件记录**工作台全部迭代**（UI 与业务修复），仅保留最近两轮详报，更早轮次删除——「仍有效」的遗留并入文末「历史遗留汇总」，其余不保留；通用坑与经验一律沉淀进 ARCHITECTURE.md 坑清单。②改动前先读 `ARCHITECTURE.md`（文件地图 + 坑清单）。③迭代收尾顺序：更新本文件 → `git commit + push origin main` → **重新打包 exe**（命令见 CLAUDE.md）。**commit message 以版本号开头**：格式 `v1.N：摘要`，N 为迭代轮次（第九轮 → `v1.9`，以此类推）。回滚用 `git revert`（仓库在 `workbench/`）。
+> 写给下一轮迭代的规则：①本文件记录**工作台全部迭代**（UI 与业务修复），仅保留最近两轮详报，更早轮次删除——「仍有效」的遗留并入文末「历史遗留汇总」，其余不保留；通用坑与经验一律沉淀进 ARCHITECTURE.md 坑清单。②改动前先读 `ARCHITECTURE.md`（文件地图 + 坑清单）。③迭代收尾顺序：更新本文件 → `git commit + push origin main` → **重新打包 exe**（命令见 CLAUDE.md）。**commit message 以版本号开头**：格式 `v1.N：摘要`，N 为迭代轮次（第九轮 → `v1.9`）；**同一天内的多轮迭代第三段递增**（`v1.9` → `v1.9.1` → `v1.9.2`…，次日恢复 `v1.N` 主线）。④**上游依赖问题优先评估直接升级**：遇到上游库的 bug（如 Gradio issue）先评估升级影响面（API 兼容 + 自定义 CSS/DOM 依赖 + 打包回归），可通过则直接升级并同步更新 requirements.txt（版本不默认钉死，升级评估优先于绕行 workaround）。回滚用 `git revert`（仓库在 `workbench/`）。
 
 ## 本轮改了什么（背景：聊天窗口粘贴大段文字报错「Invalid file type: text/plain. Please upload a file that is one of these formats: ['image']」，消息发不出去）
 
