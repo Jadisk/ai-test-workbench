@@ -30,6 +30,16 @@ _CSS = """
 .chat-view { height: calc(100vh - var(--chat-reserved)); }
 .chat-view .styler { display: flex; flex-direction: column; height: 100%; }
 .chat-view .chat-fill { flex: 1 1 auto; min-height: 160px; }
+/* 聊天输入框：前端 autoresize 按内容把 textarea 内联 height 撑到 max_lines(12) 封顶（~255px），
+   弹性布局余量不足时会把组件底部发送/贴文件按钮顶出视口（小窗口/DPI 缩放下更易触发）。
+   max-height 与内联 height 独立生效（实际渲染高 = min，无需 !important），超限后 textarea
+   自身滚动（autoresize action 恒设 overflowY:scroll）；小视口连续收紧（420 = 预留 160 +
+   chatbot 下限 160 + status ~20 + 输入框外壳 ~58 + 缓冲），保证最坏情况下一屏容纳 */
+.chat-view textarea { max-height: min(220px, calc(100vh - 420px)); }
+/* 输入框不参与 flex 收缩：styler 的 flex item 是组件外层的 .form 包装（坑：.block 在 form 里），
+   form 被压缩时其内容（block）按自然高度溢出 form 画到容器外，按钮反被顶开；
+   空间不足时让位应全部由 chat-fill 吸收（其 min-height 兜底） */
+.chat-view .form { flex-shrink: 0; }
 /* 脚本运行页测试文件列表：一行一个、长名换行、不出横向滚动（minmax(0,1fr)+min-width:0 防长名撑开） */
 .cases-list .wrap { display: grid; grid-template-columns: minmax(0, 1fr); max-height: 400px; overflow-y: auto; overflow-x: hidden; align-content: start; gap: 6px 0; }
 .cases-list .wrap label, .cases-list .wrap label .wrap-inner, .cases-list .wrap label .label-text { min-width: 0; }
