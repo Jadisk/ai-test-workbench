@@ -6,6 +6,8 @@
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import gradio as gr
 
 from .. import chat_log, claude_api, config
@@ -17,12 +19,40 @@ from .common import (
     event_to_message,
     filter_candidates,
     parse_slash_command,
+    read_text,
     replace_trigger,
     resolve_refs,
     save_uploaded_images,
 )
 
 CHAT_HEIGHT_DEFAULT = 340
+
+# 附件按内容内联进 prompt 的文本类后缀（其余按图片/文件路径引用）
+_TEXT_ATTACHMENT_EXTS = {".txt", ".md", ".csv", ".json", ".log", ".py",
+                        ".yaml", ".yml", ".toml", ".ini", ".xml", ".html"}
+
+
+def _build_prompt_with_attachments(text: str, attachments: list[str]) -> str:
+    """附件分流组装：图片类给绝对路径（模型读图），文本类直接内联内容。
+
+    粘贴的大段文本以 paste.txt 附件形态到达，内联后模型无需再读盘；
+    文本内容超长由 read_text 截断（80k）兜底。
+    """
+    image_paths, text_parts = [], []
+    for p in attachments:
+        if Path(p).suffix.lower() in _TEXT_ATTACHMENT_EXTS:
+            text_parts.append(read_text(p))
+        else:
+            image_paths.append(p)
+
+    prompt = text
+    if image_paths:
+        file_lines = "\n".join(f"- {p}" for p in image_paths)
+        prompt = (prompt + "\n\n" if prompt else "") + f"[附件图片]\n{file_lines}"
+    for i, content in enumerate(text_parts, 1):
+        title = f"[附件文本内容 {i}]" if len(text_parts) > 1 else "[附件文本内容]"
+        prompt = (prompt + "\n\n" if prompt else "") + f"{title}\n{content}"
+    return prompt
 
 
 def _session_info_md(session_id: str | None) -> str:
@@ -95,7 +125,9 @@ def build_chat_panel(timer: gr.Timer, active_job: gr.State) -> tuple[gr.Group, d
         )
         status = gr.Markdown("", container=True)  # 任务进度/会话状态（初始为空）
         msg = gr.MultimodalTextbox(
-            file_types=["image"],
+            # text 必须在白名单：粘贴大段文本时 Gradio 前端会转成 paste.txt 附件提交，
+            # 只有 image 的话后端 preprocess 直接 raise Error，消息发不出去（Gradio issue #10630）
+            file_types=["image", "text"],
             placeholder="输入消息，可附截图；@文件路径 引用文件（如 @test-points/xxx.md）；/命令 调用 SKILL",
             label="消息",
             lines=5, max_lines=12,          # 预填讨论 prompt 时可撑开，flex 布局下对话区自动让位
@@ -127,11 +159,7 @@ def build_chat_panel(timer: gr.Timer, active_job: gr.State) -> tuple[gr.Group, d
                 yield history, gr.update(), session_id, "请输入消息或附上截图"
                 return
 
-            # 附件以绝对路径提供给模型
-            prompt = text
-            if attachments:
-                file_lines = "\n".join(f"- {p}" for p in attachments)
-                prompt = (prompt + "\n\n" if prompt else "") + f"[附件文件]\n{file_lines}"
+            prompt = _build_prompt_with_attachments(text, attachments)
 
             # / 命令分流：SKILL 任务走 JobManager（聊天流精简渲染）
             command = parse_slash_command(text)

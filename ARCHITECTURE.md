@@ -75,6 +75,7 @@ btn.click(_make_switch(idx), outputs=[*view_groups, *sidebar_buttons]).success(f
     - **`.column` 默认 `flex-wrap: wrap`**：子组件自然高超过容器高时**横向「换列」**——预览框被推到容器右边界之外（left=列右界），视觉整框空白且极易误判为 CodeMirror 渲染问题。必须 `flex-wrap: nowrap` 让 flex-shrink 正常压缩。同时 Row 是 `equal_height=False`（align-items: flex-start）时列不拉伸，子项 `height:100%` 才能锚定行高。
     - **Gradio `.block` 自带 `margin: 0 auto`**：在 flex 容器交叉轴上 auto margin 吸收全部空间把子项推到另一侧（block 流布局下无效所以平时不暴露）——flex 化的容器内显式 `margin-left/right: 0`。
     - **CodeMirror 不可强约束高度**：给 `.codemirror-wrapper/.cm-editor/.cm-scroller` 设 `height:100%` 链后，懒挂载（display:none→显示）时其虚拟视口测量失准——行在 DOM（gutter/文本齐全、颜色正常）却整框空白。正确做法：**外框（`.block` 层）flex 分配高度 + overflow-y:auto 作唯一滚动宿主，CodeMirror 保持自然高全渲染**。排查此类「空白」先 dump 子元素 `getBoundingClientRect()` 确认位置是否在容器外，再怀疑渲染。
+18. **MultimodalTextbox 粘贴大段文本会变成 `paste.txt` 附件**（2026-11-20 v1.9 实证，Gradio issue #10630，5.50 仍复现）：`file_types` 白名单必须含 `"text"`，否则粘贴大段文本后**发送时报**「Invalid file type: text/plain」（报错在后端 `preprocess` 校验，不在粘贴瞬间——消息根本发不出去）。上游修复在 Gradio 6.x。放宽后文本以附件形态提交，需把文本类附件内容内联进 prompt（见 chat.py `_build_prompt_with_attachments`）。注意：**报错文案在 Python 侧**（grep 前端构建产物找不到），定位组件类报错先分清前端 toast / 后端 Error 再 grep 对应层。
 
 ## 验证惯例
 
