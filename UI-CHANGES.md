@@ -18,15 +18,13 @@
 | 文件 | 改动 |
 |---|---|
 | workbench/ui/__init__.py | 聊天视图 CSS：textarea 限高 + .form flex-shrink:0 |
-| workbench/ARCHITECTURE.md | 坑 14（flex item 是 .form 非 .block、textarea autoresize 内联 height）；坑 13 补充 2026-11-19 Python 丢失恢复 |
+| workbench/ARCHITECTURE.md | 坑 14（flex item 是 .form 非 .block、textarea autoresize 内联 height） |
 | workbench/UI-CHANGES.md | 本报告 |
 
 ## 验证结论
 - playwright 实测三档视口（1400×800 / 1120×640≈125% DPI / 933×533≈150% DPI）灌满输入框（30 行文本）：发送/贴文件按钮全部在视口内（inViewport=true），styler 无溢出；125% 档修复前按钮 bottom 644 > 视口 640（FAIL），修复后 572（PASS）。
 - 100% 档全页截图确认：输入框内部滚动（显示尾部行），回形针与发送按钮完整可见，页脚正常。
-
-## 环境插曲
-系统 Python 3.10.11 随 11-17 蓝屏连锁丢失、`.venv` 失效——已从 npmmirror 镜像静默装回原路径，venv 直接复活（坑 13 有恢复方式记录）。本轮验证与打包即基于恢复后的环境。
+- exe 模式实测（2026-11-19 用户）：预填后「手动发送」链路通过，claude 回复流式显示并正常完成（第六轮零输出挂死未复现）；「项目上下文」页显示正常。
 
 ## 遗留风险 / 下一轮注意
 1. 150% 缩放（逻辑视口 ~533px）下 chatbot min 160 + 页头占满可用高，页面整体溢出 ~65px 自然滚动——按钮仍可用，属可接受的极端场景；若要消除需同步下调 chatbot min-height 与 `--chat-reserved`。
@@ -37,20 +35,16 @@
 
 ## 上一轮概要（第六轮 · 修复 · 业务 · 2026-11-13）
 - 背景 exe 模式任务零事件卡死：claude_api.py `stdin=subprocess.DEVNULL` + stderr 收集（`stderr_lines()`）；jobs.py stderr 尾部落任务日志（finally 全路径覆盖）、手动停止改中性 `stopped` 状态且收尾线程不覆盖；common.py 停止态文案；launcher.py 启动自检 claude CLI 路径落 launcher.log ×2。
-- **exe 零输出根因未闭环**，转观测闭环策略（见文末汇总）。
+- exe 零输出根因未闭环，转观测闭环策略（观测入口沉淀于坑 13；2026-11-19 exe 模式实测未复现）。
 - 验证：接口/导入链验证过；NULL stdin 句柄下 claude 回流正常（stdin 假设证伪）。
 
 ---
 
 ## 历史遗留汇总（各轮中仍有效的项；坑均在 ARCHITECTURE.md）
-- **exe 零输出挂死根因未定位**（第六轮）——复现时先看任务日志 stderr 尾部 + launcher.log 自检行（坑 13 观测入口）；stderr 落盘发生在任务结束后，零输出挂死需手动停止（或进程退出）才能看到内容。
-- **2026-11-17 蓝屏连锁**：系统回环网络栈损伤致 exe 卡死（坑 13 判别命令与修复阶梯）；系统 Python 丢失已恢复（坑 13）。
-- 预填后「手动发送」的 submit 链路未自动实测（会真调 claude CLI）——窗口模式首次使用留意。
-- `--chat-reserved: 160px`（聊天弹性布局预留高）按当前字体渲染校准，出现 ±几px 页面滚动时优先调它（第七轮补充：textarea 限高公式的 420px 与它联动，见本轮遗留 3）。
+- `--chat-reserved: 160px`（聊天弹性布局预留高）按当前字体渲染校准，出现 ±几px 页面滚动时优先调它（textarea 限高公式的 420px 与它联动，见第七轮遗留 3）。
 - Dropdown 自动预选后刷新列表，选中项与预览可能短暂不一致（影响小）。
 - @ 联想候选 TTL 30 秒（common.py `_SUGGEST_TTL_SEC`）。
 - 脚本生成「已生成禁勾」是提交时过滤而非 UI 置灰。
-- exe 打包后建议实测：窗口模式开窗 + 上下文页（ast 解析是为 frozen 场景修的）。
 - 用例生成左列下方留白（左列内容仅 4 个组件）——确认过的方案，若想填充可加说明块。
 - 1400×800 窗口下脚本生成解析后内容底 ~800+，页面轻微滚动（自然滚动模式，正常）。
 - 预览对非标准用例 Excel（无 4 个关键表头）回退显示全部 12 列 → 容器内横滚兜底（行为可预期）。
