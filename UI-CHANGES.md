@@ -1,3 +1,66 @@
+# 工作台迭代报告（第十一轮 · 最小路径兼容 · 2026-11-26 · v1.11）
+
+> 本轮目标：让工作台文件选择、pytest 目标、提示词和界面文案跟随项目 `pipeline/` 目录迁移；不改变业务逻辑、UI 行为或功能边界。
+
+## 本轮改了什么
+
+### 活跃路径映射
+
+| 用途 | 工作台路径 |
+|---|---|
+| 输入截图 | `pipeline/01-screenshots/` |
+| 测试点 | `pipeline/02-test-points/` |
+| 测试用例 | `pipeline/03-test-cases/` |
+| 测试脚本 | `pipeline/04-test-scripts/` |
+| 失败截图 | 本次运行 `assets/`（正式为 `pipeline/05-results/reports/{时间戳}/assets/`，draft 为 `debug/scripts/assets/`） |
+| 历史失败截图画廊 | `pipeline/05-results/screenshots/failures/`（保留原扫描逻辑） |
+| 脚本截图 | `pipeline/05-results/script-output/` |
+| 正式运行报告 | `pipeline/05-results/reports/` |
+| 工作台临时文件 | `debug/scratch/workbench/` |
+| 生成期草稿报告 | `debug/scripts/` |
+
+### 兼容改动
+
+1. `workbench/config.py`：目录常量切换到上述映射；SKILL 描述、示例、分析/用例/脚本提示词同步新路径。生成期 `--draft` 仍只落 `debug/scripts/`，正式报告不得在生成期写入；维护台账指向技能参考目录。
+2. `workbench/ui/views_ops.py`：全量 pytest 目标改为 `pipeline/04-test-scripts/`；运行、报告、失败截图区块的路径文案同步更新；运行结果文件不再宣称包含 SKILL 试运行产物。
+3. `workbench/ui/views_gen.py`、`ui/chat.py`、`ui/common.py`、`pytest_api.py`、`jobs.py`：文件选择提示、@ 引用示例、脚本输出说明、目录注释、默认 pytest 标题与结果落盘文案同步新路径。
+4. `pipeline/04-test-scripts/test_workbench_config.py`：新增目录常量与生成提示词路径断言，并保留 draft、SKILL 路由和维护评估契约。
+5. `workbench/ARCHITECTURE.md`：新增活跃产物路径表，验证脚本与调试截图示例同步到 `debug/scratch/workbench/`、`debug/screenshots/`。
+
+### 明确未改
+
+- API URL key（`test-points`、`test-cases`、`tests`、`results`、`failures`）保持不变，仅其指向目录随常量迁移。
+- 未改失败截图画廊的扫描/展示逻辑；已知画廊目录与报告 `assets/` 产物不一致问题继续暂缓。
+- 未改 `CLAUDE.md` 相关代码；其缺失只影响工作台项目上下文展示/状态，继续暂缓。
+- 未改业务规则、任务互斥、报告解析、截图采集或 UI 交互。
+
+## 涉及文件
+
+| 文件 | 改动 |
+|---|---|
+| `workbench/config.py` | 目录常量、SKILL 描述与生成提示词路径 |
+| `workbench/ui/views_ops.py` | 全量 pytest 目标与运行/报告界面文案 |
+| `workbench/ui/views_gen.py`、`ui/chat.py`、`ui/common.py`、`pytest_api.py`、`jobs.py` | 旧路径文案与注释 |
+| `pipeline/04-test-scripts/test_workbench_config.py` | 路径与提示词契约断言 |
+| `workbench/AGENTS.md`、`ARCHITECTURE.md`、`UI-CHANGES.md` | 局部规范、活跃路径与本轮报告 |
+| `workbench-TODO.md` | 旧提示词冲突标记已解决，登记两项暂缓事项并修正资料路径 |
+
+## 验证结论
+
+- `.venv/Scripts/python.exe -m py_compile`：7 个改动 Python 文件通过。
+- 工作台配置与环境兼容回归：9 项通过；本地 draft 全链路回归：39 项通过；变异注入回归：64 项通过。
+- 全量 collect-only：52 项收集成功，报告产物变化 0；draft 报告 `draft=true`、39 条用例结果齐全，调试脚本未被清单清理误删。
+- 正式环境冒烟：2 项通过，时间戳报告与详情页齐全；历史失败运行验证到页级 console.log 与本次运行 `assets/` 截图。
+- 本地浏览器逐页核验截图、测试点、用例、脚本、历史报告与项目上下文，均从迁移后的 `pipeline/` 目录读取；截图见 `debug/screenshots/workbench/migration-context-smoke.png`。
+- 未运行 B 站在线全量用例；frozen exe 待本轮提交后重新打包并冒烟。
+
+## 遗留风险 / 下一轮注意
+
+1. `CLAUDE.md` 已不在项目根；工作台仍保留原项目上下文引用，需单独评估切换规则真源展示，不能混入目录兼容。
+2. 失败截图画廊读取扁平 failures 目录，而正式报告截图位于各次运行的 `assets/`；修复涉及产物消费逻辑，需独立迭代。
+
+---
+
 # 工作台迭代报告（第十轮 · 补充修复 · 2026-11-26 · v1.10.2）
 
 > 本轮目标：脚本生成统一经 `script-common` 调度，修正工作台与 SKILL 的 draft 产物口径冲突，把“分类差异记录与维护评估”纳入固定流程，并修复宿主代理环境下 frozen exe 无法启动的问题。
@@ -60,39 +123,14 @@
 
 ---
 
-# 工作台迭代报告（第九轮 · 修复 · 2026-11-20 · v1.9）
+## 上一轮概要（第九轮 · 修复 · 2026-11-20 · v1.9）
 
-> 写给下一轮迭代的规则：①本文件记录**工作台全部迭代**（UI 与业务修复），仅保留最近两轮详报，更早轮次删除——「仍有效」的遗留并入文末「历史遗留汇总」，其余不保留；通用坑与经验一律沉淀进 ARCHITECTURE.md 坑清单。②改动前先读 `ARCHITECTURE.md`（文件地图 + 坑清单）。③迭代收尾顺序：更新本文件 → `git commit + push origin main` → **重新打包 exe**（命令见 CLAUDE.md）。**commit message 以版本号开头**：格式 `v1.N：摘要`，N 为迭代轮次（第九轮 → `v1.9`）；**同一天内的多轮迭代第三段递增**（`v1.9` → `v1.9.1` → `v1.9.2`…，次日恢复 `v1.N` 主线）。④**上游依赖问题优先评估直接升级**：遇到上游库的 bug（如 Gradio issue）先评估升级影响面（API 兼容 + 自定义 CSS/DOM 依赖 + 打包回归），可通过则直接升级并同步更新 requirements.txt（版本不默认钉死，升级评估优先于绕行 workaround）。回滚用 `git revert`（仓库在 `workbench/`）。
+> 写给下一轮迭代的规则：①本文件记录**工作台全部迭代**（UI 与业务修复），仅保留最近两轮详报，更早轮次删除——「仍有效」的遗留并入文末「历史遗留汇总」，其余不保留；通用坑与经验一律沉淀进 ARCHITECTURE.md 坑清单。②改动前先读 `ARCHITECTURE.md`（文件地图 + 坑清单）。③迭代收尾顺序：更新本文件 → `git commit + push origin main` → **重新打包 exe**（命令见 AGENTS.md）。**commit message 以版本号开头**：格式 `v1.N：摘要`，N 为迭代轮次（第九轮 → `v1.9`）；**同一天内的多轮迭代第三段递增**（`v1.9` → `v1.9.1` → `v1.9.2`…，次日恢复 `v1.N` 主线）。④**上游依赖问题优先评估直接升级**：遇到上游库的 bug（如 Gradio issue）先评估升级影响面（API 兼容 + 自定义 CSS/DOM 依赖 + 打包回归），可通过则直接升级并同步更新 requirements.txt（版本不默认钉死，升级评估优先于绕行 workaround）。回滚用 `git revert`（仓库在 `workbench/`）。
 
-## 本轮改了什么（背景：聊天窗口粘贴大段文字报错「Invalid file type: text/plain. Please upload a file that is one of these formats: ['image']」，消息发不出去）
-
-### 根因（Gradio issue #10630，5.50 仍复现）
-
-粘贴大段文本时 Gradio 前端（`max_plain_text_length` 机制）会把文本转成 `paste.txt` 附件随消息提交；发送时后端 `MultimodalTextbox.preprocess` 按 `file_types=['image']` 校验 MIME，`text/plain` 不在白名单 → 直接 `raise Error` → **消息根本发不出去**（报错在 submit 校验，不在粘贴瞬间）。上游修复合入 Gradio 6.x，评估升级工作量（DOM/CSS 全量回归）过大，按用户确认维持不升级，采用白名单放宽方案。
-
-### 修复（chat.py）
-
-1. `MultimodalTextbox(file_types=["image", "text"])`：text 进白名单，`paste.txt` 附件过校验（前端 accept 同步为 `image/*, text/*`）。
-2. 新增模块级 `_build_prompt_with_attachments(text, attachments)`：附件分流——图片类给绝对路径（模型读图），文本类（.txt/.md/.py 等）**内容直接内联进 prompt**（read_text 80k 截断兜底），模型无需再读盘。粘贴的大段文字完整到达模型。
-
-### 体验说明（与「文字直接进输入框」的差异）
-
-粘贴大段文本后，文字以 `paste.txt` **附件缩略**形态出现在输入框下方（不撑开输入框），发送后内容完整进 prompt。已向用户说明并确认接受；如后续要求「文字直接显示在输入框」，需升级 Gradio 6.x（独立迭代评估）。
-
-## 涉及文件
-| 文件 | 改动 |
-|---|---|
-| workbench/ui/chat.py | file_types 加 "text"；新模块级 `_build_prompt_with_attachments`（附件分流组装） |
-| workbench/UI-CHANGES.md / ARCHITECTURE.md | 本报告；坑 18 |
-
-## 验证结论
-- **preprocess 单测**：旧白名单 `['image']` 复现报错（铁证）；新 `['image','text']` 接受 `text/plain` 附件。
-- **组装函数单测** 4 场景全过：文本附件+文字（内联+暗号 MANGO-77 完整）、纯文本不变、仅文本附件（发送且内联）、图片附件（路径引用不内联）。
-- 前端 accept 属性实测已反映 `image/*, text/*`。
-
-## 遗留风险 / 下一轮注意
-1. / 命令（SKILL 任务）分支的附件仍是路径引用方式（未内联）——粘贴文本 + /命令组合场景少，模型可读盘；若需要可复用 `_build_prompt_with_attachments`。
-2. Gradio 升级（6.x）的完整评估见第八轮概要末尾；「文字直接进输入框」体验需升级才能实现。
+- **聊天粘贴文本兼容**：`MultimodalTextbox` 白名单加入 `text`，文本附件内容内联进 prompt，解决 Gradio issue #10630 导致的 `text/plain` 发送报错；通用坑见 ARCHITECTURE.md 坑 18。
+- **用例生成页弹性布局**：预览改为占满右列剩余高度、外框唯一滚动宿主；150% DPI 档页面级双滚动条仍未根治，用户确认暂缓。
+- **launcher.log 治理**：uvicorn access 日志降为 WARNING。
+- **Gradio 6.x 升级评估未实施**：修复虽在上游，但需核对 breaking changes、重校准旧 DOM/CSS 并回归 7 视图三档视口；文字直接进输入框体验仍依赖升级。
 
 ---
 
@@ -106,6 +144,8 @@
 ---
 
 ## 历史遗留汇总（各轮中仍有效的项；坑均在 ARCHITECTURE.md）
+- **Gradio 6.x 与文字直接进输入框**：当前维持不升级，粘贴文本以 `paste.txt` 附件缩略显示、发送时内容内联。升级需核对 breaking changes、重校准依赖旧 DOM 的自定义 CSS，并回归 7 视图三档视口，必须作为独立迭代评估。
+- **`/` 命令分支附件未内联**：SKILL 任务分支仍传附件路径；需要时复用 `workbench/ui/chat.py` 的 `_build_prompt_with_attachments`，不要另造一套组装逻辑。
 - **150% 缩放档双滚动条（用户确认暂缓）**：exe 窗口 1400×800 物理像素在 150% DPI 下逻辑视口 ~933×533，页面级固定开销（页头 103 + 侧边栏 ~420 + 页脚）超视口，页面级 Row 被侧边栏撑开溢出 ~65px + 页面内局部滚动并存。根治需整页 flex 重构（页面级 Row/侧边栏纳入视口约束，牵连 7 视图）。缓解备查（未验证）：exe 窗口最大化提高逻辑视口；launcher 默认尺寸按 DPI 反算。
 - fnm 环境：双击 exe 的 PATH 来自 explorer 快照，装/换 node 版本管理器后旧常驻实例可能解析不到 claude CLI——fatal 已进聊天流可感知；彻底解决需 launcher 重试解析或解析 .cmd shim 直连 node。
 - `--chat-reserved: 160px` 与 textarea 限高公式 420px 按 100% 缩放字体渲染校准，改字号/页头需同步。

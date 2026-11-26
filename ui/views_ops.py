@@ -21,12 +21,13 @@ def build_runner_view(timer: gr.Timer) -> gr.Group:
         gr.Markdown(
             "### 脚本运行\n\n"
             "通过 subprocess 调用项目虚拟环境 pytest（默认 msedge 无头）。"
-            "失败用例自动截图至 `screenshots/failures/`，运行结果落盘 `results/`。"
+            "失败用例自动截图至 `pipeline/05-results/reports/{时间戳}/assets/`，"
+            "运行结果落盘 `pipeline/05-results/reports/`。"
             "测试文件默认全不选，勾选后仅运行所选。"
         )
         with gr.Row():
             with gr.Column(scale=1):
-                run_all = gr.Checkbox(label="全量运行 tests/", value=False)
+                run_all = gr.Checkbox(label="全量运行 pipeline/04-test-scripts/", value=False)
                 test_files = gr.CheckboxGroup(
                     label="选择测试文件",
                     choices=list_test_choices(),
@@ -56,7 +57,7 @@ def build_runner_view(timer: gr.Timer) -> gr.Group:
                 )
 
         def on_start(run_all_flag, files, marker, channel, headed):
-            targets = ["tests/"] if run_all_flag else list(files or [])
+            targets = ["pipeline/04-test-scripts/"] if run_all_flag else list(files or [])
             if not targets:
                 return None, "请勾选全量运行或选择至少一个测试文件"
             try:
@@ -106,7 +107,7 @@ def build_reports_view(timer: gr.Timer) -> gr.Group:
     with gr.Group(visible=False) as view:
         gr.Markdown(
             "### 结果报告\n\n"
-            "回看历史 pytest 运行（junitxml 解析 + `results/` 落盘文件），"
+            "回看历史 pytest 运行（junitxml 解析 + `pipeline/05-results/reports/` 落盘文件），"
             "浏览失败截图与运行日志。实时执行请用「脚本运行」。"
         )
         with gr.Accordion("历史 pytest 运行", open=True):
@@ -136,7 +137,7 @@ def build_reports_view(timer: gr.Timer) -> gr.Group:
         btn_refresh.click(lambda: gr.update(choices=_pytest_job_choices()), outputs=[job_dd])
 
         # 区块顺序（常用度优先）：历史运行 → 运行结果文件 → 失败截图
-        gr.Markdown("### 运行结果文件（results/，pytest 运行与 SKILL 试运行落盘）")
+        gr.Markdown("### 运行结果文件（pipeline/05-results/reports/，pytest 运行落盘）")
         with gr.Row():
             btn_results_refresh = gr.Button("刷新", scale=1)
             results_dd = gr.Dropdown(
@@ -153,7 +154,7 @@ def build_reports_view(timer: gr.Timer) -> gr.Group:
             outputs=[results_dd],
         )
 
-        gr.Markdown("### 失败截图（screenshots/failures/，conftest 自动保存）")
+        gr.Markdown("### 失败截图（历史目录 `pipeline/05-results/screenshots/failures/`；当前正式截图在 `reports/{时间戳}/assets/`）")
         gr.Gallery(value=_failures_gallery(), columns=4, height=320, interactive=False)
         return view
 

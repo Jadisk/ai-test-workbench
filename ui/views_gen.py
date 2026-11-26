@@ -29,8 +29,8 @@ def build_analysis_view(timer: gr.Timer) -> dict:
     _advice_files = list_choices(config.DIR_TEST_POINTS, (".md",))
     with gr.Group(visible=False) as view:
         gr.Markdown(
-            "### 测试点分析　选择 `screenshots/test-points/` 中的截图（单选），"
-            "输出测试点文档到 `test-points/`。"
+            "### 测试点分析　选择 `pipeline/01-screenshots/` 中的截图（单选），"
+            "输出测试点文档到 `pipeline/02-test-points/`。"
         )
         with gr.Row():
             with gr.Column(scale=1):
@@ -144,8 +144,8 @@ def build_cases_view(timer: gr.Timer) -> dict:
     # elem_classes=["cases-view"]：右列弹性布局锚点（预览占满剩余高、单层滚动，见 __init__ CSS）
     with gr.Group(visible=False, elem_classes=["cases-view"]) as view:
         gr.Markdown(
-            "### 用例生成　选择 `test-points/` 测试点文档（最新在前），"
-            "生成标准 12 列用例 Excel 到 `test-cases/`。"
+            "### 用例生成　选择 `pipeline/02-test-points/` 测试点文档（最新在前），"
+            "生成标准 12 列用例 Excel 到 `pipeline/03-test-cases/`。"
         )
         with gr.Row():
             with gr.Column(scale=1):
@@ -208,7 +208,8 @@ def build_cases_view(timer: gr.Timer) -> dict:
 def build_scripts_view(timer: gr.Timer) -> dict:
     with gr.Group(visible=False) as view:
         gr.Markdown(
-            "### 脚本生成　选择用例 Excel，按编号前缀路由 script-func / script-ui 生成 pytest 脚本。"
+            "### 脚本生成　选择 `pipeline/03-test-cases/` 用例 Excel，"
+            "按编号前缀路由 script-func / script-ui 生成 pytest 脚本到 `pipeline/04-test-scripts/`。"
         )
         with gr.Row():
             with gr.Column(scale=1):
@@ -342,7 +343,7 @@ def build_scripts_view(timer: gr.Timer) -> dict:
             skipped = [cid for cid in selected_ids if cid in generated]
             selected = [cid for cid in selected_ids if cid not in generated]
             if not selected:
-                return None, "勾选的用例均已生成脚本（不可重复生成）；如需重新生成请先删除 tests/ 对应脚本"
+                return None, "勾选的用例均已生成脚本（不可重复生成）；如需重新生成请先删除 pipeline/04-test-scripts/ 对应脚本"
             ids = ", ".join(selected)
             prompt = config.build_script_prompt(xlsx_path, ids, int(limit or 0))
             title = "脚本生成 " + (selected[0] + (f" 等{len(selected)}条" if len(selected) > 1 else ""))

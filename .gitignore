@@ -8,6 +8,7 @@ dist/
 
 # 运行时数据（任务记录、日志、junit 报告，代码启动时自动重建）
 data/
+.benchmarks/
 
 # IDE / 编辑器配置
 .idea/

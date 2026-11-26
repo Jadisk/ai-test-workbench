@@ -174,7 +174,7 @@ class JobManager:
         junitxml = config.DIR_REPORTS / f"junit_{_ts()}_{uuid.uuid4().hex[:6]}.xml"
         job = Job(
             kind="pytest",
-            title="pytest " + (" ".join(targets) if targets else "tests/"),
+            title="pytest " + (" ".join(targets) if targets else "pipeline/04-test-scripts/"),
             meta={
                 "targets": targets, "marker": marker, "headed": headed, "channel": channel,
                 "junitxml": str(junitxml),
@@ -261,7 +261,7 @@ class JobManager:
             job.log(f"任务异常：{exc}")
         finally:
             job.finished_at = _now()
-            # 运行结果落盘 results/（项目约定目录）：完整输出 + 摘要 JSON
+            # 运行结果落盘 pipeline/05-results/reports/（项目约定目录）：完整输出 + 摘要 JSON
             try:
                 config.DIR_RESULTS.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(job.log_path, config.DIR_RESULTS / f"{job.id}_pytest_console.log")
@@ -274,7 +274,7 @@ class JobManager:
                     encoding="utf-8",
                 )
             except OSError as exc:
-                job.log(f"运行结果落盘 results/ 失败：{exc}")
+                job.log(f"运行结果落盘 pipeline/05-results/reports/ 失败：{exc}")
             job.save()
             self._procs.pop(job.id, None)
             self._locks["pytest"].release()

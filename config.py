@@ -33,16 +33,16 @@ if getattr(sys, "frozen", False):
 else:
     PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-DIR_TEST_POINTS = PROJECT_ROOT / "test-points"          # 测试点文档 *.md
-DIR_TEST_CASES = PROJECT_ROOT / "test-cases"            # 测试用例 *.xlsx
-DIR_TESTS = PROJECT_ROOT / "tests"                      # pytest 用例脚本
-DIR_PAGES = PROJECT_ROOT / "pages"                      # POM 页面对象
-DIR_SCREENSHOTS = PROJECT_ROOT / "screenshots"
-DIR_SHOT_TEST_POINTS = DIR_SCREENSHOTS / "test-points"  # 测试点分析输入截图
-DIR_SHOT_FAILURES = DIR_SCREENSHOTS / "failures"        # 失败自动截图（conftest 管理）
-DIR_SHOT_SCRIPT_OUTPUT = DIR_SCREENSHOTS / "script-output"
-DIR_RESULTS = PROJECT_ROOT / "results"                  # 失败用例 console/network 日志
-DIR_TMP = PROJECT_ROOT / ".tmp" / "workbench"           # 工作台专用临时目录
+DIR_TEST_POINTS = PROJECT_ROOT / "pipeline" / "02-test-points"          # 测试点文档 *.md
+DIR_TEST_CASES = PROJECT_ROOT / "pipeline" / "03-test-cases"            # 测试用例 *.xlsx
+DIR_TESTS = PROJECT_ROOT / "pipeline" / "04-test-scripts"              # pytest 用例脚本
+DIR_PAGES = PROJECT_ROOT / "pages"                                      # POM 页面对象
+DIR_SCREENSHOTS = PROJECT_ROOT / "pipeline" / "01-screenshots"          # 测试点分析输入截图
+DIR_SHOT_TEST_POINTS = DIR_SCREENSHOTS                                 # 输入截图直接位于 01-screenshots/
+DIR_SHOT_FAILURES = PROJECT_ROOT / "pipeline" / "05-results" / "screenshots" / "failures"
+DIR_SHOT_SCRIPT_OUTPUT = PROJECT_ROOT / "pipeline" / "05-results" / "script-output"
+DIR_RESULTS = PROJECT_ROOT / "pipeline" / "05-results" / "reports"      # pytest 日志、摘要与正式报告
+DIR_TMP = PROJECT_ROOT / "debug" / "scratch" / "workbench"             # 工作台专用临时目录
 DIR_CHAT_UPLOADS = DIR_TMP / "chat-uploads"             # 聊天面板附件
 
 FILE_CLAUDE_MD = PROJECT_ROOT / "CLAUDE.md"
@@ -103,32 +103,32 @@ SKILLS: dict[str, dict[str, str]] = {
     "web-test-analysis": {
         "label": "截图分析测试点",
         "skill_md": ".claude/skills/web-test-analysis/SKILL.md",
-        "desc": "基于页面截图分析 UI 结构，输出 test-points/*.md",
+        "desc": "基于页面截图分析 UI 结构，输出 pipeline/02-test-points/*.md",
         "param_hint": "示例：分析 bilibili 首页截图，重点关注顶部导航",
     },
     "test-case-generation": {
         "label": "测试点转用例 Excel",
         "skill_md": ".claude/skills/test-case-generation/SKILL.md",
-        "desc": "基于 test-points/*.md 生成 test-cases/*.xlsx",
-        "param_hint": "示例：基于 test-points/homepage_20261010_v4.md 生成，接口维度排除",
+        "desc": "基于 pipeline/02-test-points/*.md 生成 pipeline/03-test-cases/*.xlsx",
+        "param_hint": "示例：基于 pipeline/02-test-points/homepage_20261010_v4.md 生成，接口维度排除",
     },
     "script-func": {
         "label": "FUNC 用例 → 自动化脚本",
         "skill_md": ".claude/skills/script-func/SKILL.md",
-        "desc": "基于 test-cases/*.xlsx 的 FUNC 用例生成 tests/test_*.py",
-        "param_hint": "示例：基于 test-cases/homepage_20261102_v4.xlsx，用例编号 HOME_FUNC_001",
+        "desc": "基于 pipeline/03-test-cases/*.xlsx 的 FUNC 用例生成 pipeline/04-test-scripts/test_*.py",
+        "param_hint": "示例：基于 pipeline/03-test-cases/homepage_20261102_v4.xlsx，用例编号 HOME_FUNC_001",
     },
     "script-ui": {
         "label": "UI 用例 → 自动化脚本",
         "skill_md": ".claude/skills/script-ui/SKILL.md",
-        "desc": "基于 test-cases/*.xlsx 的 UI 用例生成 tests/test_*.py",
-        "param_hint": "示例：基于 test-cases/homepage_20261102_v4.xlsx，用例编号 HOME_UI_001",
+        "desc": "基于 pipeline/03-test-cases/*.xlsx 的 UI 用例生成 pipeline/04-test-scripts/test_*.py",
+        "param_hint": "示例：基于 pipeline/03-test-cases/homepage_20261102_v4.xlsx，用例编号 HOME_UI_001",
     },
     "py-browser-lite": {
         "label": "轻量浏览器脚本",
         "skill_md": ".claude/skills/py-browser-lite/SKILL.md",
-        "desc": "单文件浏览器自动化脚本，输出到 scripts/",
-        "param_hint": "示例：抓取 bilibili 热门榜标题，保存截图到 screenshots/debug/",
+        "desc": "单文件浏览器自动化脚本，输出到 tools/",
+        "param_hint": "示例：抓取 bilibili 热门榜标题，保存截图到 debug/screenshots/",
     },
 }
 
@@ -165,7 +165,7 @@ def build_analysis_prompt(screenshot: str, note: str = "") -> str:
         "请读取 .claude/skills/web-test-analysis/SKILL.md 并严格按其中规范执行测试点分析。\n\n"
         f"本次分析的截图（绝对路径）：{Path(screenshot).resolve()}\n\n"
         f"补充说明：{note.strip() or '无'}\n\n"
-        "输出必须落到 test-points/ 目录，命名遵循 SKILL 规范（页面标识_日期_版本号）。" + _TAIL
+        "输出必须落到 pipeline/02-test-points/ 目录，命名遵循 SKILL 规范（页面标识_日期_版本号）。" + _TAIL
     )
 
 
@@ -175,7 +175,7 @@ def build_cases_prompt(point_md: str, note: str = "") -> str:
         "请读取 .claude/skills/test-case-generation/SKILL.md 并严格按其中规范执行测试用例生成。\n\n"
         f"输入的测试点文档（绝对路径）：{Path(point_md).resolve()}\n\n"
         f"补充说明：{note.strip() or '无'}\n\n"
-        "输出必须落到 test-cases/ 目录，命名遵循 SKILL 规范。" + _TAIL
+        "输出必须落到 pipeline/03-test-cases/ 目录，命名遵循 SKILL 规范。" + _TAIL
     )
 
 
@@ -193,14 +193,16 @@ def build_script_prompt(xlsx: str, case_ids: str, limit: int = 0) -> str:
         "2. 再按用例编号前缀读取对应子技能：FUNC → script-func，UI → script-ui，PERF → script-perf；\n"
         "3. 子技能只补充类型专有动作，不得绕过 script-common 的命名、POM、试跑、回填与维护评估真源。\n\n"
         f"测试用例 Excel（绝对路径）：{xlsx_path}\n"
+        "脚本输出目录：pipeline/04-test-scripts/。\n"
         f"本次要实现的用例编号：{ids_line}\n"
     )
     if limit and limit > 0:
         prompt += f"数量上限：本次最多生成 {limit} 个脚本；具体入选与跳过规则以 script-common 为准。\n"
     prompt += (
         "\n严格遵循选择器现场核验、POM 更新和最多 3 轮 draft 试跑修正；"
-        "所有生成期试运行必须带 --draft，报告只落 debug/，不得产出 results/ 正式归档。\n"
-        "试跑与自检后必须执行分类差异记录与维护评估：问题写入 docs/script-generation-findings.md，"
+        "所有生成期试运行必须带 --draft，报告只落 debug/scripts/，不得产出 pipeline/05-results/reports/ 正式归档。\n"
+        "试跑与自检后必须执行分类差异记录与维护评估：问题写入 "
+        ".agents/skills/script-common/references/script-generation-findings.md，"
         "按通用规则/B 站知识/上游预期/无需回流分类；AI 只提出维护候选，不自动修改 SKILL，"
         "噪音白名单和性能基线必须等待用户确认。\n"
         "Excel 只回填自动化状态，不写执行状态或实际结果。" + _TAIL

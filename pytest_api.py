@@ -117,7 +117,7 @@ def parse_junitxml(path: Path) -> dict:
     for case in suite.iter("testcase"):
         classname = case.get("classname", "")
         name = case.get("name", "")
-        # 还原为可读 nodeid：tests.test_X.test_y → tests/test_X.py::test_y
+        # 还原为可读 nodeid：pipeline.04-test-scripts.test_X.test_y → pipeline/04-test-scripts/test_X.py::test_y
         nodeid = classname.replace(".", "/") + ".py::" + name if classname else name
         message = None
         if case.find("failure") is not None:

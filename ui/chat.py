@@ -128,7 +128,7 @@ def build_chat_panel(timer: gr.Timer, active_job: gr.State) -> tuple[gr.Group, d
             # text 必须在白名单：粘贴大段文本时 Gradio 前端会转成 paste.txt 附件提交，
             # 只有 image 的话后端 preprocess 直接 raise Error，消息发不出去（Gradio issue #10630）
             file_types=["image", "text"],
-            placeholder="输入消息，可附截图；@文件路径 引用文件（如 @test-points/xxx.md）；/命令 调用 SKILL",
+            placeholder="输入消息，可附截图；@文件路径 引用文件（如 @pipeline/02-test-points/xxx.md）；/命令 调用 SKILL",
             label="消息",
             lines=5, max_lines=12,          # 预填讨论 prompt 时可撑开，flex 布局下对话区自动让位
         )

@@ -119,7 +119,7 @@ def parse_excel_cases(path: str) -> list[dict]:
 
 
 def generated_case_ids() -> set[str]:
-    """扫描 tests/ 目录，返回已生成脚本的用例编号集合（test_{编号}.py）。"""
+    """扫描 pipeline/04-test-scripts/ 目录，返回已生成脚本的用例编号集合（test_{编号}.py）。"""
     ids: set[str] = set()
     if not config.DIR_TESTS.exists():
         return ids
@@ -129,7 +129,7 @@ def generated_case_ids() -> set[str]:
 
 
 def list_test_choices() -> list[tuple[str, str]]:
-    """tests/ 下测试脚本下拉选项：仅 test_*.py（排除 conftest.py / __init__.py 等）。"""
+    """pipeline/04-test-scripts/ 下测试脚本下拉选项：仅 test_*.py（排除 conftest.py / __init__.py 等）。"""
     return [
         (Path(p).name, p) for p in list_files(config.DIR_TESTS, (".py",))
         if Path(p).name.startswith("test_")
