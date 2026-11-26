@@ -52,7 +52,7 @@
 - 全量 collect-only：52 项收集成功，报告产物变化 0；draft 报告 `draft=true`、39 条用例结果齐全，调试脚本未被清单清理误删。
 - 正式环境冒烟：2 项通过，时间戳报告与详情页齐全；历史失败运行验证到页级 console.log 与本次运行 `assets/` 截图。
 - 本地浏览器逐页核验截图、测试点、用例、脚本、历史报告与项目上下文，均从迁移后的 `pipeline/` 目录读取；截图见 `debug/screenshots/workbench/migration-context-smoke.png`。
-- 未运行 B 站在线全量用例；frozen exe 待本轮提交后重新打包并冒烟。
+- 未运行 B 站在线全量用例。PyInstaller 6.22.3 重新打包成功；保留宿主代理环境以纯服务模式启动 frozen exe，HTTP 200，逐页核验截图分析、用例生成、脚本生成、脚本运行、结果报告与项目上下文，迁移后的 `pipeline/` 路径均已生效，当前页面 console 错误 0；截图见 `debug/screenshots/workbench/migration-exe-smoke.png`、`debug/screenshots/workbench/migration-exe-context-smoke.png`。
 
 ## 遗留风险 / 下一轮注意
 
