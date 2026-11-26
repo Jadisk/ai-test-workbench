@@ -15,6 +15,12 @@ launcher.py（exe/窗口入口，pywebview，窗口尺寸在 _open_window）
        └─ ui/__init__.py build_ui()（组装全部 UI）
 ```
 
+## SKILL 路由与产物口径
+
+- 脚本生成提示词必须先读 `.claude/skills/script-common/SKILL.md`，再由 `script-common` 按 FUNC/UI/PERF 前缀调度子技能；工作台注册表只是快捷入口，不是动态技能发现器。
+- 生成期试运行统一 `--draft`，报告只落项目根 `debug/`；`results/{时间戳}/` 是下游正式执行产物，提示词不得要求脚本生成环节写入。
+- 脚本生成结束后必须执行分类差异记录与维护评估，台账为项目根 `docs/script-generation-findings.md`；工作台只提示与记录任务，不自动修改 SKILL。
+
 ## UI 文件地图
 
 | 文件 | 职责 | 入口 |

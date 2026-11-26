@@ -1,3 +1,60 @@
+# 工作台迭代报告（第十轮 · 修复 · 2026-11-26 · v1.10）
+
+> 本轮目标：脚本生成统一经 `script-common` 调度，修正工作台与 SKILL 的 draft 产物口径冲突，并把“分类差异记录与维护评估”纳入固定流程。
+
+## 本轮改了什么
+
+### 根因
+
+- 工作台脚本提示词直接读取 `script-func` / `script-ui`，绕过共有入口 `script-common`，导致 PERF、维护评估和最新共有判据无法保证进入上下文。
+- 提示词要求“试运行完整输出落盘 `results/`”，与 SKILL 的生成期 `--draft` / `debug/` 契约冲突。
+- 脚本生成后没有统一的分类差异记录与维护评估步骤，现场问题依赖人工再次发起讨论。
+
+### 修复
+
+1. `workbench/config.py`：`build_script_prompt` 改为先读 `script-common`，再按 FUNC/UI/PERF 前缀读取子技能；数量上限的具体入选/跳过规则交回 `script-common`。
+2. 统一生成期试运行必须带 `--draft`，报告只落 `debug/`；明确不得产出 `results/` 正式归档。
+3. 提示词增加分类差异记录与维护评估：写入 `docs/script-generation-findings.md`，按通用规则/B 站知识/上游预期/无需回流分类；AI 只提候选，不自动修改 SKILL。
+4. `build_skill_prompt` 对脚本子技能快捷调用也先加载 `script-common`，避免聊天入口绕过共有真源。
+5. `workbench/ARCHITECTURE.md`：新增“SKILL 路由与产物口径”稳定约束。
+
+### 配套规则真源
+
+- `.agents/skills/script-common/`：新增维护评估步骤与模板，资产表增加“适用范围”，POM 增加 `DOM_QUERIES`，自检增加维护评估项。
+- `script-common/references/edge-cases.md`：补 popup、定位/URL API、直接/间接代理边界。
+- `script-common/references/bili-env-notes.md`：补新标签页、有效卡片、搜索上限、频道页空正文边界；`bili-noise-whitelist.md` 增加来源证据门槛。
+- `web-test-analysis` / `test-case-generation`：补归属复核清单与预期可判定门槛。
+- `docs/script-generation-findings.md`：原日期记录改为滚动台账，并完成 16 项问题分类处置。
+
+## 涉及文件
+
+| 文件 | 改动 |
+|---|---|
+| `workbench/config.py` | 脚本提示词统一走 common，修正 draft/debug 口径，增加维护评估 |
+| `workbench/ARCHITECTURE.md` | 新增 SKILL 路由与产物口径 |
+| `workbench/UI-CHANGES.md` | 本轮报告 |
+| `tests/test_workbench_config.py` | 提示词路由、draft 契约、维护评估回归 |
+| `.agents/skills/script-common/` 及子技能 | 维护闭环、资产范围、POM/popup/断言规则 |
+| `.agents/skills/web-test-analysis/`、`test-case-generation/` | 上游归属与预期可判定门槛 |
+| `docs/script-generation-findings.md` | 滚动问题台账与分类处置 |
+
+## 验证结论
+
+- `tests/test_workbench_config.py`：4 项通过，覆盖统一入口、draft/debug 契约、维护评估与快捷调用。
+- 环境冒烟 + 报告隐私/渲染 + PERF 运行时 + 提示词回归：共 34 项通过。
+- `py_compile workbench/config.py tests/test_workbench_config.py`：通过。
+- SKILL 资源指针已核对，`maintenance-review.md`、`edge-cases.md`、`bili-*.md` 与 `page-object-5-section.md` 均存在。
+- 未运行新的 B 站在线全量用例；站点事实沿用 2026-11-26 现场记录，后续改版需复核。
+- pytest 仅提示 `.pytest_cache` 写入权限警告，不影响测试结果。
+
+## 遗留风险 / 下一轮注意
+
+1. 工作台仍只提供 FUNC/UI 快捷入口；PERF 入口与自动门禁未在本轮扩展。
+2. B 站站点事实带 2026-11-26 校准日期，后续改版仍需现场复核。
+3. 空输入/空格搜索、XSS 过滤页、主导航范围三项上游口径仍开放，未通过改 SKILL 放宽断言。
+
+---
+
 # 工作台迭代报告（第九轮 · 修复 · 2026-11-20 · v1.9）
 
 > 写给下一轮迭代的规则：①本文件记录**工作台全部迭代**（UI 与业务修复），仅保留最近两轮详报，更早轮次删除——「仍有效」的遗留并入文末「历史遗留汇总」，其余不保留；通用坑与经验一律沉淀进 ARCHITECTURE.md 坑清单。②改动前先读 `ARCHITECTURE.md`（文件地图 + 坑清单）。③迭代收尾顺序：更新本文件 → `git commit + push origin main` → **重新打包 exe**（命令见 CLAUDE.md）。**commit message 以版本号开头**：格式 `v1.N：摘要`，N 为迭代轮次（第九轮 → `v1.9`）；**同一天内的多轮迭代第三段递增**（`v1.9` → `v1.9.1` → `v1.9.2`…，次日恢复 `v1.N` 主线）。④**上游依赖问题优先评估直接升级**：遇到上游库的 bug（如 Gradio issue）先评估升级影响面（API 兼容 + 自定义 CSS/DOM 依赖 + 打包回归），可通过则直接升级并同步更新 requirements.txt（版本不默认钉死，升级评估优先于绕行 workaround）。回滚用 `git revert`（仓库在 `workbench/`）。

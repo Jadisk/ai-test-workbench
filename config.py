@@ -97,7 +97,7 @@ POLL_INTERVAL_SEC = 2.0
 LOG_TAIL_LINES = 200
 
 # ---------------------------------------------------------------------------
-# SKILL 注册表（与 .claude/skills/ 一一对应）
+# SKILL 快捷入口注册表（脚本子技能由 script-common 统一调度）
 # ---------------------------------------------------------------------------
 SKILLS: dict[str, dict[str, str]] = {
     "web-test-analysis": {
@@ -144,10 +144,17 @@ _TAIL = (
 
 
 def build_skill_prompt(skill_key: str, task_desc: str) -> str:
-    """SKILL 快捷调用：要求模型读取对应 SKILL.md 并严格按规范执行。"""
+    """SKILL 快捷调用：脚本子技能先经 script-common 调度，再读取类型技能。"""
     info = SKILLS[skill_key]
+    common = ""
+    if skill_key in {"script-func", "script-ui", "script-perf"}:
+        common = (
+            "请先读取 .claude/skills/script-common/SKILL.md，按共有判据完成输入预检、"
+            "路由和流程；再读取下列类型子技能，子技能不得绕过共有真源。\n\n"
+        )
     return (
-        f"请读取 {info['skill_md']} 并严格按其中规范执行本次任务。\n\n"
+        common
+        + f"请读取 {info['skill_md']} 并严格按其中规范执行本次任务。\n\n"
         f"任务：{task_desc or info['desc']}" + _TAIL
     )
 
@@ -173,23 +180,29 @@ def build_cases_prompt(point_md: str, note: str = "") -> str:
 
 
 def build_script_prompt(xlsx: str, case_ids: str, limit: int = 0) -> str:
-    """脚本生成：按用例编号前缀路由（FUNC → script-func / UI → script-ui），混合任务一并说明。
+    """脚本生成：统一经 script-common 路由到 FUNC/UI/PERF 子技能。
 
     case_ids 为逗号分隔编号或 ALL（全量模式）；limit 为可选数量上限（0 = 不限）。
+    入选、跳过与回填规则以 script-common 为准，工作台不另造口径。
     """
     xlsx_path = Path(xlsx).resolve()
-    ids_line = "ALL（全量模式：自动选取全部可自动化且未生成的用例）" if case_ids.strip().upper() == "ALL" else case_ids.strip()
+    ids_line = "ALL（全量模式：按 script-common 规则选取候选）" if case_ids.strip().upper() == "ALL" else case_ids.strip()
     prompt = (
-        "请执行自动化脚本生成，按用例编号前缀分别遵循对应 SKILL 规范：\n"
-        "- FUNC 前缀用例：读取 .claude/skills/script-func/SKILL.md 并严格按其中规范执行\n"
-        "- UI 前缀用例：读取 .claude/skills/script-ui/SKILL.md 并严格按其中规范执行\n\n"
+        "请执行自动化脚本生成：\n"
+        "1. 先读取 .claude/skills/script-common/SKILL.md，严格按共有判据完成预检、路由与流程；\n"
+        "2. 再按用例编号前缀读取对应子技能：FUNC → script-func，UI → script-ui，PERF → script-perf；\n"
+        "3. 子技能只补充类型专有动作，不得绕过 script-common 的命名、POM、试跑、回填与维护评估真源。\n\n"
         f"测试用例 Excel（绝对路径）：{xlsx_path}\n"
         f"本次要实现的用例编号：{ids_line}\n"
     )
     if limit and limit > 0:
-        prompt += f"数量上限：本次最多生成 {limit} 个脚本（按顺序取前 {limit} 条，跳过已生成的不计数）\n"
+        prompt += f"数量上限：本次最多生成 {limit} 个脚本；具体入选与跳过规则以 script-common 为准。\n"
     prompt += (
-        "\n严格遵循 SKILL 的选择器现场核验、POM 更新、试运行修正流程；"
-        "试运行完整输出落盘 results/。" + _TAIL
+        "\n严格遵循选择器现场核验、POM 更新和最多 3 轮 draft 试跑修正；"
+        "所有生成期试运行必须带 --draft，报告只落 debug/，不得产出 results/ 正式归档。\n"
+        "试跑与自检后必须执行分类差异记录与维护评估：问题写入 docs/script-generation-findings.md，"
+        "按通用规则/B 站知识/上游预期/无需回流分类；AI 只提出维护候选，不自动修改 SKILL，"
+        "噪音白名单和性能基线必须等待用户确认。\n"
+        "Excel 只回填自动化状态，不写执行状态或实际结果。" + _TAIL
     )
     return prompt
