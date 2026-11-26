@@ -82,13 +82,14 @@ btn.click(_make_switch(idx), outputs=[*view_groups, *sidebar_buttons]).success(f
     - **Gradio `.block` 自带 `margin: 0 auto`**：在 flex 容器交叉轴上 auto margin 吸收全部空间把子项推到另一侧（block 流布局下无效所以平时不暴露）——flex 化的容器内显式 `margin-left/right: 0`。
     - **CodeMirror 不可强约束高度**：给 `.codemirror-wrapper/.cm-editor/.cm-scroller` 设 `height:100%` 链后，懒挂载（display:none→显示）时其虚拟视口测量失准——行在 DOM（gutter/文本齐全、颜色正常）却整框空白。正确做法：**外框（`.block` 层）flex 分配高度 + overflow-y:auto 作唯一滚动宿主，CodeMirror 保持自然高全渲染**。排查此类「空白」先 dump 子元素 `getBoundingClientRect()` 确认位置是否在容器外，再怀疑渲染。
 18. **MultimodalTextbox 粘贴大段文本会变成 `paste.txt` 附件**（2026-11-20 v1.9 实证，Gradio issue #10630，5.50 仍复现）：`file_types` 白名单必须含 `"text"`，否则粘贴大段文本后**发送时报**「Invalid file type: text/plain」（报错在后端 `preprocess` 校验，不在粘贴瞬间——消息根本发不出去）。上游修复在 Gradio 6.x，本轮（v1.9）因升级影响面评估按旧策略绕行（file_types 放宽 + 文本内联）；**用户已改定策略（见 UI-CHANGES 引导语④）：今后上游问题优先评估直接升级，可升级则升并同步 requirements**——若做 Gradio 6.x 升级迭代，本坑的绕行实现可移除（粘贴文本将直接进输入框）。注意：**报错文案在 Python 侧**（grep 前端构建产物找不到），定位组件类报错先分清前端 toast / 后端 Error 再 grep 对应层。
+19. **宿主 `NO_PROXY` 含 `[::1]` 会让 frozen exe 在导入 Gradio 时崩溃**（2026-11-26 v1.10.2 实证）：httpx 构造环境代理规则时把方括号 IPv6 条目误解析为端口，报 `httpx.InvalidURL: Invalid port: ':1]'`。`app.py` 必须在导入 `gradio` 前调用 `env_compat.normalize_no_proxy()`，仅去掉 `NO_PROXY` / `no_proxy` 条目的外层方括号，不改其它代理变量；回归见 `tests/test_workbench_env_compat.py`。验证 exe 时保留宿主代理环境直接启动，不能用清空代理的“干净环境”掩盖该问题。
 
 ## 验证惯例
 
 - playwright headless msedge，viewport 对齐当前窗口默认尺寸（launcher.py `_open_window`）。
 - 服务在验证脚本内以 **7861 端口**线程启动（避免与运行中的 7860 实例冲突）；`config.PORT = 7861` 必须在 `import workbench.app` 之前。
 - 临时验证脚本放 `.tmp/`，成功后删除（**不保留上轮整脚本**——断言绑定当轮改动必过期；样板骨架在下方，每轮复制 + 写当轮断言）。
-- frozen exe 若在导入 Gradio 时报 `httpx.InvalidURL: Invalid port: ':1]'`，先检查宿主 `NO_PROXY` 是否含 `[::1]`；用清空代理变量且 `NO_PROXY=localhost,127.0.0.1` 的干净环境重试，不要误改业务代码。
+- frozen exe 若在导入 Gradio 时报 `httpx.InvalidURL: Invalid port: ':1]'`，检查 `app.py` 是否在导入 Gradio 前执行 `normalize_no_proxy()`（坑 19）；验证时保持宿主代理环境不变。
 - 改动完成后更新 `UI-CHANGES.md`：本轮报告置顶 + 上轮收编历史章节（保留踩坑记录的引用价值）。
 
 ### 标准验证骨架（每轮复制此样板，只写当轮断言）

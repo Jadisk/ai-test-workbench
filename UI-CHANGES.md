@@ -1,6 +1,6 @@
-# 工作台迭代报告（第十轮 · 修复 · 2026-11-26 · v1.10）
+# 工作台迭代报告（第十轮 · 补充修复 · 2026-11-26 · v1.10.2）
 
-> 本轮目标：脚本生成统一经 `script-common` 调度，修正工作台与 SKILL 的 draft 产物口径冲突，并把“分类差异记录与维护评估”纳入固定流程。
+> 本轮目标：脚本生成统一经 `script-common` 调度，修正工作台与 SKILL 的 draft 产物口径冲突，把“分类差异记录与维护评估”纳入固定流程，并修复宿主代理环境下 frozen exe 无法启动的问题。
 
 ## 本轮改了什么
 
@@ -9,6 +9,7 @@
 - 工作台脚本提示词直接读取 `script-func` / `script-ui`，绕过共有入口 `script-common`，导致 PERF、维护评估和最新共有判据无法保证进入上下文。
 - 提示词要求“试运行完整输出落盘 `results/`”，与 SKILL 的生成期 `--draft` / `debug/` 契约冲突。
 - 脚本生成后没有统一的分类差异记录与维护评估步骤，现场问题依赖人工再次发起讨论。
+- v1.10.1 打包后的 exe 在正常宿主环境启动时，被 `NO_PROXY` 中的 `[::1]` 触发 httpx 代理规则解析错误；清空代理虽可启动，但不能作为交付方案。
 
 ### 修复
 
@@ -17,6 +18,7 @@
 3. 提示词增加分类差异记录与维护评估：写入 `docs/script-generation-findings.md`，按通用规则/B 站知识/上游预期/无需回流分类；AI 只提候选，不自动修改 SKILL。
 4. `build_skill_prompt` 对脚本子技能快捷调用也先加载 `script-common`，避免聊天入口绕过共有真源。
 5. `workbench/ARCHITECTURE.md`：新增“SKILL 路由与产物口径”稳定约束。
+6. 新增 `workbench/env_compat.py`，在 `app.py` 导入 Gradio 前规范化 `NO_PROXY` / `no_proxy`：仅移除条目外层方括号，保留其它代理变量与条目语义，避免 `[::1]` 被 httpx 误解析为端口。
 
 ### 配套规则真源
 
@@ -31,9 +33,11 @@
 | 文件 | 改动 |
 |---|---|
 | `workbench/config.py` | 脚本提示词统一走 common，修正 draft/debug 口径，增加维护评估 |
-| `workbench/ARCHITECTURE.md` | 新增 SKILL 路由与产物口径 |
+| `workbench/app.py`、`env_compat.py` | Gradio 导入前规范化带方括号的 IPv6 NO_PROXY 条目 |
+| `workbench/ARCHITECTURE.md` | 新增 SKILL 路由与产物口径、启动期代理兼容坑 19 |
 | `workbench/UI-CHANGES.md` | 本轮报告 |
 | `tests/test_workbench_config.py` | 提示词路由、draft 契约、维护评估回归 |
+| `tests/test_workbench_env_compat.py` | NO_PROXY 大小写、IPv6、空白与幂等回归 |
 | `.agents/skills/script-common/` 及子技能 | 维护闭环、资产范围、POM/popup/断言规则 |
 | `.agents/skills/web-test-analysis/`、`test-case-generation/` | 上游归属与预期可判定门槛 |
 | `docs/script-generation-findings.md` | 滚动问题台账与分类处置 |
@@ -41,14 +45,12 @@
 ## 验证结论
 
 - `tests/test_workbench_config.py`：4 项通过，覆盖统一入口、draft/debug 契约、维护评估与快捷调用。
-- 环境冒烟 + 报告隐私/渲染 + PERF 运行时 + 提示词回归：共 34 项通过。
-- `py_compile workbench/config.py tests/test_workbench_config.py`：通过。
+- 环境冒烟 + 报告隐私/渲染 + PERF 运行时 + 提示词回归 + NO_PROXY 兼容：共 37 项通过。
+- `py_compile workbench/env_compat.py workbench/app.py tests/test_workbench_env_compat.py`：通过。
 - SKILL 资源指针已核对，`maintenance-review.md`、`edge-cases.md`、`bili-*.md` 与 `page-object-5-section.md` 均存在。
 - 未运行新的 B 站在线全量用例；站点事实沿用 2026-11-26 现场记录，后续改版需复核。
-- pytest 仅提示 `.pytest_cache` 写入权限警告，不影响测试结果。
-- PyInstaller 6.22.3 重新打包成功，产物为 `workbench/dist/测试工作台/测试工作台.exe`。
-- exe 以 `WORKBENCH_WINDOW=0` 启动后 HTTP 200；Playwright 切到“脚本生成”视图并完成 DOM/文案断言，冒烟通过。
-- 首次 exe 启动被宿主 `NO_PROXY` 中的 `[::1]` 触发 `httpx.InvalidURL: Invalid port: ':1]'`；清空代理变量并以 `NO_PROXY=localhost,127.0.0.1` 启动后通过，未改业务代码。
+- 回归使用 `-p no:cacheprovider`，规避既有 `.pytest_cache` 写入权限警告，不影响测试结果。
+- v1.10.1 的 PyInstaller 6.22.3 打包与干净代理环境冒烟已通过；因启动兼容代码在其后变更，v1.10.2 需重新打包，并保持宿主代理环境直接验证。
 
 ## 遗留风险 / 下一轮注意
 

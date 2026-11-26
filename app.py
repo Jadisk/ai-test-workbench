@@ -10,6 +10,11 @@
 """
 from __future__ import annotations
 
+from .env_compat import normalize_no_proxy
+
+# Gradio/httpx 在导入时读取环境代理；必须先规范化 NO_PROXY 再导入 gradio。
+normalize_no_proxy()
+
 import gradio as gr
 import uvicorn
 from fastapi import FastAPI
