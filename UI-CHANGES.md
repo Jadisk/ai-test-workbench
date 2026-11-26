@@ -46,6 +46,9 @@
 - SKILL 资源指针已核对，`maintenance-review.md`、`edge-cases.md`、`bili-*.md` 与 `page-object-5-section.md` 均存在。
 - 未运行新的 B 站在线全量用例；站点事实沿用 2026-11-26 现场记录，后续改版需复核。
 - pytest 仅提示 `.pytest_cache` 写入权限警告，不影响测试结果。
+- PyInstaller 6.22.3 重新打包成功，产物为 `workbench/dist/测试工作台/测试工作台.exe`。
+- exe 以 `WORKBENCH_WINDOW=0` 启动后 HTTP 200；Playwright 切到“脚本生成”视图并完成 DOM/文案断言，冒烟通过。
+- 首次 exe 启动被宿主 `NO_PROXY` 中的 `[::1]` 触发 `httpx.InvalidURL: Invalid port: ':1]'`；清空代理变量并以 `NO_PROXY=localhost,127.0.0.1` 启动后通过，未改业务代码。
 
 ## 遗留风险 / 下一轮注意
 

@@ -88,6 +88,7 @@ btn.click(_make_switch(idx), outputs=[*view_groups, *sidebar_buttons]).success(f
 - playwright headless msedge，viewport 对齐当前窗口默认尺寸（launcher.py `_open_window`）。
 - 服务在验证脚本内以 **7861 端口**线程启动（避免与运行中的 7860 实例冲突）；`config.PORT = 7861` 必须在 `import workbench.app` 之前。
 - 临时验证脚本放 `.tmp/`，成功后删除（**不保留上轮整脚本**——断言绑定当轮改动必过期；样板骨架在下方，每轮复制 + 写当轮断言）。
+- frozen exe 若在导入 Gradio 时报 `httpx.InvalidURL: Invalid port: ':1]'`，先检查宿主 `NO_PROXY` 是否含 `[::1]`；用清空代理变量且 `NO_PROXY=localhost,127.0.0.1` 的干净环境重试，不要误改业务代码。
 - 改动完成后更新 `UI-CHANGES.md`：本轮报告置顶 + 上轮收编历史章节（保留踩坑记录的引用价值）。
 
 ### 标准验证骨架（每轮复制此样板，只写当轮断言）
