@@ -50,7 +50,7 @@
 - SKILL 资源指针已核对，`maintenance-review.md`、`edge-cases.md`、`bili-*.md` 与 `page-object-5-section.md` 均存在。
 - 未运行新的 B 站在线全量用例；站点事实沿用 2026-11-26 现场记录，后续改版需复核。
 - 回归使用 `-p no:cacheprovider`，规避既有 `.pytest_cache` 写入权限警告，不影响测试结果。
-- v1.10.1 的 PyInstaller 6.22.3 打包与干净代理环境冒烟已通过；因启动兼容代码在其后变更，v1.10.2 需重新打包，并保持宿主代理环境直接验证。
+- v1.10.2 使用 PyInstaller 6.22.3 重新打包成功；exe 在保留宿主 `NO_PROXY=[::1]` 的正常环境下直接启动，HTTP 200，Playwright 切到“脚本生成”视图并通过 DOM/文案断言，浏览器 console 错误 0；截图见 `screenshots/debug/exe_smoke_v1_10_2.png`。
 
 ## 遗留风险 / 下一轮注意
 
